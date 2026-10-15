@@ -15,8 +15,8 @@ import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from mcp import ClientSession
-from mcp.client.stdio import StdioServerParameters, stdio_client
+from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "data" / "campus_customs_new.db"
@@ -119,23 +119,22 @@ def verify(test: dict, out: dict) -> tuple[list[dict], list[dict]]:
 
 async def main() -> None:
     cfg = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["campus-customs"]
-    params = StdioServerParameters(command=cfg["command"], args=cfg["args"], env={**os.environ, **cfg.get("env", {})})
+    transport = StdioTransport(command=cfg["command"], args=cfg["args"], env={**os.environ, **cfg.get("env", {})})
     results = []
-    async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
-        await session.initialize()
-        listed = [t.name for t in (await session.list_tools()).tools]
+    async with Client(transport) as client:
+        listed = [t.name for t in await client.list_tools()]
         for test in TESTS:
-            res = await session.call_tool(test["tool"], test["arguments"])
+            res = await client.call_tool(test["tool"], test["arguments"], raise_on_error=False)
             text = "\n".join(c.text for c in res.content if c.type == "text")
-            output = json.loads(text) if not res.isError else text
-            queries, checks = verify(test, output) if not res.isError else ([], [])
+            output = json.loads(text) if not res.is_error else text
+            queries, checks = verify(test, output) if not res.is_error else ([], [])
             results.append({
                 **test,
-                "is_error": res.isError,
+                "is_error": res.is_error,
                 "tool_output": output,
                 "db_queries": queries,
                 "db_checks": checks,
-                "pass": not res.isError and all(c["match"] for c in checks),
+                "pass": not res.is_error and all(c["match"] for c in checks),
             })
 
     report = {

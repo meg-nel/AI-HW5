@@ -112,3 +112,85 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push the smoke test to AI-HW5.
 
 *What was lacking:* Follow-up 3 didn't say to save the smoke test to GitHub, so `output/mcp_smoke.json` and its script were only on my computer.
+
+---
+
+## Problem 5: Build the Agent Team and Grow the MCP Tools
+
+### Initial prompt
+
+> Thx. Next is Problem 5: Build the Agent Team and Grow the MCP Tools. Build the agentic team for Campus Customs using PydanticAI: Boss, Inventory, Accounting, Facilities, and Customer Service. Include prompts, models, and agent loops so they can delegate work to each other with full connectivity. Put the agent prompts in backend/prompts/ - one file per agent. Put data types in backend/models.py and the agent files under backend/. Use my API key and only gpt-6-luna for every agent. There are important shop rules all agents should follow. The field desk.date_today is "today" for the shop and use the date to determine what is overdue. Vendor lead times come from the vendors table and a vendor will not ship new product while they still have an open unpaid invoice. Human approval is required for any payments - make sure human approval occurs, and if payment is made, make sure to update the relevant table. If there isn't enough cash, the pay tool must refuse and negative balances are not allowed. Cash only goes out, we don't need to record revenue or money comping in. Before a full run to resolve tickets, reset the database to the original values
+
+### Follow-up prompts
+
+**Follow-up 1**
+
+> Write each prompt with the shop rules the agent needs - be more detailed and ensure all aspects of an agent's work and scope are covered
+
+*What was lacking:* The first prompt listed the shop rules once for the whole team but didn't say each agent's prompt file had to spell out the rules it needs and its full scope of work.
+
+**Follow-up 2**
+
+> where can I put the key?
+
+*What was lacking:* The first prompt said to use my API key but not where the key should be stored so the agents can read it.
+
+**Follow-up 3**
+
+> how can i add my key to .env
+
+*What was lacking:* Knowing the key goes in `.env` wasn't enough; I needed step-by-step instructions for creating the file and adding the key.
+
+**Follow-up 4**
+
+> I added OPENAI_API_KEY to .env. Do a full run on the tickets.
+
+*What was lacking:* The first prompt asked for the team and the reset rule but not for an actual full run, and the run couldn't start until the key was in place.
+
+**Follow-up 5**
+
+> I replaced the key in .env with a new OpenAI key. Try the full run again.
+
+*What was lacking:* The key from Follow-up 4 was rejected by OpenAI (401), so a working key was needed before the run could start.
+
+**Follow-up 6**
+
+> Here is the web address to the gateway for the key: https://app.portkey.ai/api-keys
+
+*What was lacking:* The earlier prompts didn't say the key was for the Portkey gateway rather than OpenAI directly, so the agents were calling OpenAI with a key OpenAI doesn't accept.
+
+**Follow-up 7**
+
+> The full run finished. Check the results and the database.
+
+*What was lacking:* Follow-up 4 asked for the run but not for the results to be verified against the database afterwards.
+
+**Follow-up 8**
+
+> I pressed Enter and the run is going now. Tell me when it finishes and check the results.
+
+*What was lacking:* The run hadn't actually finished; my name was typed at the first prompt but never submitted with Enter, so no agent had started.
+
+**Follow-up 9**
+
+> I answered the approvals and the run finished. Check the results and the database.
+
+*What was lacking:* The run paused at a purchase-order approval (#3) that Follow-up 8 didn't anticipate, so I had to answer it before the results could be checked.
+
+**Follow-up 10**
+
+> Fix the agent issues you found (payment order, landlord wording, outdated drafts, PO vs cash), then reset and do a second full run so we get a complete run_report.json.
+
+*What was lacking:* The first run showed gaps the original prompts didn't cover: who sets the payment order, how to word a message to the landlord, what to do with outdated drafts, and whether a purchase order is limited by current cash. A runner bug also lost the run report.
+
+**Follow-up 11**
+
+> Run 2 finished and saved output/run_report.json. Check the report and the database.
+
+*What was lacking:* Follow-up 10 asked for the second run but not for its report and database to be checked once it finished.
+
+**Follow-up 12**
+
+> Commit and push Problem 5 to AI-HW5.
+
+*What was lacking:* None of the Problem 5 prompts said to save the agent team, the fixes and the run results to GitHub.

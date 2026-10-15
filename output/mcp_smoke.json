@@ -1,11 +1,24 @@
 {
-  "generated_at": "2026-10-15T01:38:28+00:00",
+  "generated_at": "2026-10-15T01:58:20+00:00",
   "server": "campus-customs (stdio, launched from .mcp.json)",
   "database": "data/campus_customs_new.db",
   "tools_listed_by_server": [
+    "get_shop_date",
+    "list_open_tickets",
+    "get_ticket",
+    "update_ticket",
     "check_stock",
     "quote_price_margin",
-    "get_bills_and_cash"
+    "list_vendors",
+    "get_bills_and_cash",
+    "request_payment",
+    "request_purchase_order",
+    "get_approval",
+    "pay_bill",
+    "draft_customer_message",
+    "list_drafts",
+    "admin_list_approvals",
+    "admin_decide_approval"
   ],
   "all_passed": true,
   "results": [

@@ -32,6 +32,7 @@ from backend.models import ApprovalDecision  # noqa: E402
 
 passed = 0
 seen_tools: dict[str, set[str]] = {}
+seen_gate: list[dict] = []
 
 
 def ok(cond: bool, label: str) -> None:
@@ -103,9 +104,9 @@ def accounting_model(pay_even_if_rejected: bool):
                 "kind": "invoice", "ref_id": 501, "requested_by": "accounting", "reason": "overdue 3 days"})])
         if turn == 1:
             gate = content_of(last_results(messages)[0])
-            approval_id = gate["request"]["id"]
-            if gate["human_decision"]["status"] == "approved" or pay_even_if_rejected:
-                return ModelResponse(parts=[ToolCallPart("pay_bill", {"approval_id": approval_id})])
+            seen_gate.append(gate)
+            if pay_even_if_rejected:  # a misbehaving agent tries to pay on its own: it has no such tool
+                return ModelResponse(parts=[ToolCallPart("pay_bill", {"approval_id": gate["request"]["id"]})])
         result = last_results(messages)[0]
         return finish(info, specialist_output("accounting", f"pay_bill result: {type(result).__name__}",
                                               [str(content_of(result))[:200]]))
@@ -116,7 +117,8 @@ def audit() -> list[dict]:
     return json.loads(TMP_AUDIT.read_text(encoding="utf-8")) if TMP_AUDIT.exists() else []
 
 
-async def run_scenario(approve: bool, pay_even_if_rejected: bool = False, limits=None) -> list[dict]:
+async def run_scenario(approve: bool | None, pay_even_if_rejected: bool = False, limits=None) -> list[dict]:
+    """approve=None runs in board mode (no approver: the request waits for a human on the board)."""
     fresh_db()
     team = CampusCustomsTeam()
     events: list[dict] = []
@@ -128,9 +130,11 @@ async def run_scenario(approve: bool, pay_even_if_rejected: bool = False, limits
 
     with team.agents["boss"].override(model=boss_model()), \
          team.agents["accounting"].override(model=accounting_model(pay_even_if_rejected)):
-        await team.run("Work ticket 101.", approver, on_event=events.append, usage_limits=limits)
-    ok(len(asked) == 1 and asked[0].amount == 840.0 and asked[0].kind == "invoice_payment",
-       "the human was asked once, for $840 on invoice 501")
+        await team.run("Work ticket 101.", None if approve is None else approver, on_event=events.append,
+                       usage_limits=limits)
+    if approve is not None:
+        ok(len(asked) == 1 and asked[0].amount == 840.0 and asked[0].kind == "invoice_payment",
+           "the human was asked once, for $840 on invoice 501")
     return events
 
 
@@ -147,6 +151,8 @@ async def main() -> None:
     ok(types.index("approval_requested") < types.index("approval_decided"), "approval requested, then decided")
     ok(sql("SELECT kind, ref_id, amount, approved_by FROM payments") == [("invoice", 501, 840.0, "Test Human")],
        "payment recorded with the human's name")
+    ok(seen_gate[-1]["next_step"].startswith("APPROVED AND PAID") and any(e["type"] == "payment_made" for e in events),
+       "the human approval step (not the agent) made the payment")
     ok(sql("SELECT balance FROM cash_accounts")[0][0] == 2560.0 and
        sql("SELECT status FROM invoices WHERE id = 501")[0][0] == "paid", "cash and invoice updated")
 
@@ -154,7 +160,8 @@ async def main() -> None:
     for agent, tools in seen_tools.items():
         ok(not any(t.startswith("admin_") for t in tools), f"{agent} can't see admin_* tools")
         ok(tools - {"delegate_task"} == set(AGENT_TOOLS[agent]), f"{agent} sees exactly its allowed tools")
-    ok("pay_bill" not in seen_tools["boss"], "boss has no pay_bill tool")
+    ok("pay_bill" not in seen_tools["boss"] and "pay_bill" not in seen_tools["accounting"],
+       "no agent has pay_bill: agents only prepare payments")
 
     print("Scenario 2: human rejects, agent tries to pay anyway")
     await run_scenario(approve=False, pay_even_if_rejected=True)
@@ -163,10 +170,17 @@ async def main() -> None:
        sql("SELECT status FROM invoices WHERE id = 501")[0][0] == "open", "cash and invoice unchanged")
     ok(sql("SELECT status, decided_by FROM approvals") == [("rejected", "Test Human")], "rejection recorded")
 
+    print("Scenario 3: board mode (no approver), the request waits for a human")
+    await run_scenario(approve=None)
+    ok(seen_gate[-1]["next_step"].startswith("PENDING") and seen_gate[-1]["human_decision"] is None,
+       "the agent is told the request is pending on the board")
+    ok(sql("SELECT status FROM approvals") == [("pending",)] and sql("SELECT COUNT(*) FROM payments")[0][0] == 0
+       and sql("SELECT balance FROM cash_accounts")[0][0] == 3400.0, "nothing is paid until a human approves")
+
     print("Audit trail")
     entries = audit()
     runs = list(dict.fromkeys(e["run_id"] for e in entries))
-    ok(len(runs) == 2, "both runs are in the audit file (second run appended, first not wiped)")
+    ok(len(runs) == 3, "all three runs are in the audit file (later runs appended, earlier ones not wiped)")
     first = [e for e in entries if e["run_id"] == runs[0]]
     ok(first[0]["type"] == "run_start" and first[-1]["type"] == "run_end" and first[-1]["status"] == "completed",
        "each run starts with run_start and ends with run_end")
@@ -178,7 +192,8 @@ async def main() -> None:
        "every loop step is recorded for both the boss and the delegated agent")
     calls = [p for e in first if e["type"] == "loop_step" and e["node"] == "model_response" for p in e["parts"]
              if p["kind"] == "tool-call"]
-    ok(any(p["tool"] == "pay_bill" for p in calls) and all("usage" in e for e in first if e.get("node") == "model_response"),
+    ok(any(p["tool"] == "request_payment" and p["args"]["ref_id"] == 501 for p in calls)
+       and all("usage" in e for e in first if e.get("node") == "model_response"),
        "model responses record tool calls with arguments and token usage")
     ok({"tool_call", "tool_result", "delegation", "delegation_result", "approval_requested", "approval_decided"}
        <= {e["type"] for e in first}, "tool calls, results, delegations, and approvals are all audited")
@@ -195,7 +210,7 @@ async def main() -> None:
     tail = audit()[before:]
     ok(tail[-1]["type"] == "run_end" and tail[-1]["status"] == "error" and "UsageLimitExceeded" in tail[-1]["error"],
        "the stopped run is audited with run_end status=error")
-    ok(len(audit()) > before and len({e['run_id'] for e in audit()}) == 3, "audit file now holds all three runs")
+    ok(len(audit()) > before and len({e['run_id'] for e in audit()}) == 4, "audit file now holds all four runs")
 
     print(f"\nAll {passed} team wiring checks passed.")
 

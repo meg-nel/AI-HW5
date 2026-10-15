@@ -151,6 +151,18 @@ def get_shop_date() -> dict:
 
 
 @mcp.tool
+def list_tickets() -> dict:
+    """List every ticket, resolved or not, with its status and whether it is open or resolved.
+    Reads tickets and desk."""
+    with _db() as conn:
+        tickets = _all(conn, "SELECT id, type, requester, subject, sku, size, qty, lease_id, invoice_id, status, "
+                             "created_at FROM tickets ORDER BY id")
+        for t in tickets:
+            t["state"] = "resolved" if t["status"] == "resolved" else "open"
+        return {"shop_date": _today(conn).isoformat(), "tickets": tickets}
+
+
+@mcp.tool
 def list_open_tickets() -> dict:
     """List every ticket that is not resolved, oldest first, with the shop date. Reads tickets and desk."""
     with _db() as conn:

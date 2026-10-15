@@ -30,13 +30,20 @@ class ApprovalRequest(BaseModel):
 
 
 class ApprovalDecision(BaseModel):
-    """What the human decided. decided_by is the person's name and goes into payments.approved_by."""
+    """What the human decided. decided_by is the person's name and goes into payments.approved_by.
+
+    applied=True means the human's side already recorded the decision and made any payment (the
+    board's approve route does this), so the agent-side gate only reports it back."""
     approved: bool
     decided_by: str
     note: str = ""
+    applied: bool = False
+    payment: dict[str, Any] | None = None
+    payment_error: str | None = None
 
 
-Approver = Callable[[ApprovalRequest], Awaitable[ApprovalDecision]]
+# Returns None if no human decided in time: the request stays pending.
+Approver = Callable[[ApprovalRequest], Awaitable[ApprovalDecision | None]]
 EventSink = Callable[[dict[str, Any]], None]
 
 
@@ -50,7 +57,7 @@ class TeamDeps:
     usage_limits is shared by the whole run, including delegated agents.
     """
     agent: AgentName
-    approver: Approver
+    approver: Approver | None  # None = board mode: approvals wait for a human on the board
     usage_limits: UsageLimits
     run_id: str = ""
     chain: list[AgentName] = field(default_factory=list)

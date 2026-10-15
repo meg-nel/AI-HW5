@@ -11,13 +11,14 @@ The server adds two helper tables to the working copy and re-creates them after 
 - `approvals`: payment and purchase-order requests, with the human's decision.
 - `drafts`: customer messages, which are never sent.
 
-## Tools (20)
+## Tools (21)
 
 **Shop date and tickets**
 
 | Tool | Reads / writes | What it does |
 |---|---|---|
 | `get_shop_date()` | reads `desk` | The shop's "today". |
+| `list_tickets()` | reads `tickets`, `desk` | Every ticket with its status and whether it is open or resolved. |
 | `list_open_tickets()` | reads `tickets`, `desk` | Every ticket that isn't resolved. |
 | `get_ticket(ticket_id)` | reads `tickets`, `inventory`, `pricing`, `invoices`, `vendors`, `leases`, `desk` | One ticket with everything it links to. |
 | `update_ticket(ticket_id, status, note, updated_by)` | writes `tickets` | Set status and add a note stamped with the shop date. |
@@ -42,7 +43,7 @@ The server adds two helper tables to the working copy and re-creates them after 
 | `request_purchase_order(vendor_id, sku, size, qty, requested_by, reason)` | writes `approvals` | Ask a human to approve a restock. Shows cash on hand and any shortfall. Refused if the vendor has an open unpaid invoice. |
 | `get_approval(approval_id)` | reads `approvals` | The status of one request. |
 | `list_approvals(status)` | reads `approvals` | Every request and the human's decision. Read-only. |
-| `pay_bill(approval_id, account)` | writes `payments`, `cash_accounts`, `invoices` / `leases`, `approvals` | Pay a human-approved bill. Refuses without approval or without enough cash. |
+| `pay_bill(approval_id, account)` | writes `payments`, `cash_accounts`, `invoices` / `leases`, `approvals` | Pay a human-approved bill. Refuses without approval or without enough cash. Called only by the human approval step (`POST /approvals/{id}/approve` or the terminal prompt); no agent has it. |
 
 **Customer messages (drafts only)**
 

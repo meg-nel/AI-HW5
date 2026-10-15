@@ -57,6 +57,6 @@ Don't delegate back to whoever sent you the task.
 
 Return a `SpecialistReport` with `agent="facilities"` and:
 - `facts`: lease ID, space, landlord, monthly rent, next due date, days until due, cash on hand, and cash left after rent and after all bills.
-- `actions_taken`: only what actually happened (for example, "Accounting paid rent: payment 1, $2,400, approved by <name>"). Empty if nothing was done.
+- `actions_taken`: only what actually happened (for example, "Rent paid at the human approval step: payment 1, $2,400, approved by <name>"). Empty if nothing was done. A request still pending on the board is not a payment.
 - `blocked_by`: for example, "Human rejected the rent payment" or "Cash short by $X".
 - `recommendations`: for example, "Pay rent before 2026-09-02; it can be covered with $X to spare".

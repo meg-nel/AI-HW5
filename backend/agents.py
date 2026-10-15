@@ -7,11 +7,16 @@ Five agents (Boss, Inventory, Accounting, Facilities, Customer Service). They al
   role needs (admin_* tools are never visible to any agent),
 - can delegate to any other agent with `delegate_task` (full mesh, depth-limited).
 
-Human approval: whenever an agent calls request_payment or request_purchase_order, the MCP
-toolset's process_tool_call hook stops and asks the human (TeamDeps.approver). The human's
-decision is recorded in the database through admin_decide_approval, and the agent gets the
-decision back in the same tool result. pay_bill only works on human-approved requests; that
-check lives in the MCP server, so it holds even if a prompt is ignored.
+Human approval: agents only *prepare* payments and purchase orders (request_payment /
+request_purchase_order). No agent has pay_bill. Cash moves only at the human approval step:
+- Board (FastAPI, backend/main.py): runs use approver=None. The request stays pending and the
+  agent is told a human will decide on the board. POST /approvals/{id}/approve is what records
+  the decision and calls pay_bill.
+- Terminal (backend/run_tickets.py): runs pass an approver that asks in the terminal. When the
+  human approves a payment, this hook (the human's side, not the agent) records the decision and
+  calls pay_bill.
+pay_bill itself only accepts human-approved requests and refuses when cash is short; those checks
+live in the MCP server, so they hold even if a prompt is ignored.
 
 Every shop fact comes from the MCP server; the backend has no tools of its own that read or
 write the database. The only non-MCP tool is delegate_task.
@@ -70,14 +75,14 @@ def default_usage_limits() -> UsageLimits:
 # Which MCP tools each agent can see. admin_* tools are deliberately absent from every list.
 AGENT_TOOLS: dict[AgentName, frozenset[str]] = {
     "boss": frozenset({
-        "get_shop_date", "list_open_tickets", "get_ticket", "update_ticket", "get_bills_and_cash",
+        "get_shop_date", "list_tickets", "list_open_tickets", "get_ticket", "update_ticket", "get_bills_and_cash",
         "check_stock", "list_inventory", "quote_price_margin", "list_vendors", "get_lease", "list_payments",
         "get_approval", "list_approvals", "list_drafts",
     }),
     "inventory": frozenset({"get_shop_date", "get_ticket", "check_stock", "list_inventory", "list_vendors"}),
     "accounting": frozenset({
         "get_shop_date", "get_ticket", "get_bills_and_cash", "quote_price_margin", "list_vendors", "get_lease",
-        "list_payments", "request_payment", "get_approval", "list_approvals", "pay_bill", "request_purchase_order",
+        "list_payments", "request_payment", "get_approval", "list_approvals", "request_purchase_order",
     }),
     "facilities": frozenset({"get_shop_date", "get_ticket", "get_lease", "get_bills_and_cash", "list_payments"}),
     "customer_service": frozenset({
@@ -115,29 +120,60 @@ async def _mcp_call_hook(ctx: RunContext[TeamDeps], call_tool, name: str, args: 
         requested_by=result["requested_by"], reason=result.get("reason"), details=result.get("details") or {},
     )
     ctx.deps.emit("approval_requested", request=request.model_dump())
+
+    pending = {"request": result, "human_decision": None,
+               "next_step": "PENDING. A human will approve or reject this on the board; that step is what pays. "
+                            "Do not wait for it and do not request it again. Report it as waiting on a human."}
+    if ctx.deps.approver is None:  # no human attached to this run: the request waits on the board
+        return pending
+
+    ctx.deps.emit("waiting_for_human", approval_id=request.approval_id)
     decision = await ctx.deps.approver(request)
+    if decision is None:  # nobody decided in time
+        return pending
     if not decision.decided_by.strip():
         raise RuntimeError("Approver returned a decision without a human name")
-    record = _as_dict(await call_tool("admin_decide_approval", {
-        "approval_id": request.approval_id, "approved": decision.approved,
-        "decided_by": decision.decided_by, "note": decision.note,
-    }))
+
+    payment, payment_error = decision.payment, decision.payment_error
+    if decision.applied:
+        # The board's approve/reject route already recorded the decision and made any payment.
+        record = _as_dict(await call_tool("get_approval", {"approval_id": request.approval_id}))
+    else:
+        record = _as_dict(await call_tool("admin_decide_approval", {
+            "approval_id": request.approval_id, "approved": decision.approved,
+            "decided_by": decision.decided_by, "note": decision.note,
+        }))
+        if decision.approved and request.kind != "purchase_order":
+            # The human approved a payment: the approval step (not the agent) pays it now.
+            try:
+                payment = _as_dict(await call_tool("pay_bill", {"approval_id": request.approval_id}))
+            except Exception as e:
+                payment_error = str(e)
     ctx.deps.emit("approval_decided", approval_id=request.approval_id, approved=decision.approved,
                   decided_by=decision.decided_by, note=decision.note)
+    if payment:
+        ctx.deps.emit("payment_made", approval_id=request.approval_id, payment=payment)
+    if payment_error:
+        ctx.deps.emit("payment_refused", approval_id=request.approval_id, error=payment_error)
 
     if not decision.approved:
-        next_step = "REJECTED by the human. Do not pay or place this order, and do not re-request it this run."
+        next_step = "REJECTED by the human. Nothing was paid or ordered. Do not request it again this run."
     elif request.kind == "purchase_order":
         next_step = "APPROVED. The purchase order is recorded; no cash moves until the vendor invoices."
+    elif payment:
+        next_step = (f"APPROVED AND PAID by the human approval step. Payment {payment['payment']['id']}, "
+                     f"cash now ${payment['cash_account']['balance']:,.2f}.")
     else:
-        next_step = f"APPROVED. Call pay_bill(approval_id={request.approval_id}) to make the payment."
-    return {"request": result, "human_decision": record, "next_step": next_step}
+        next_step = f"APPROVED but NOT PAID: {payment_error}"
+    return {"request": result, "human_decision": record, "payment": payment, "next_step": next_step}
 
 
 def build_mcp_toolset() -> MCPToolset:
     """One stdio connection to the campus-customs MCP server, shared by every agent."""
     transport = StdioTransport(command=sys.executable, args=[str(MCP_SERVER)], env=dict(os.environ), cwd=str(ROOT))
-    return MCPToolset(transport, id="campus-customs", process_tool_call=_mcp_call_hook)
+    # The server process imports FastMCP on start, which can take several seconds on a busy machine,
+    # so allow a generous handshake time rather than failing the run.
+    return MCPToolset(transport, id="campus-customs", process_tool_call=_mcp_call_hook, init_timeout=60)
 
 
 async def run_agent_step_by_step(agent: Agent[TeamDeps, Any], prompt: str, deps: TeamDeps, usage=None):
@@ -200,7 +236,7 @@ class CampusCustomsTeam:
 
         return delegate_task
 
-    async def run(self, prompt: str, approver: Approver, *, agent: AgentName = "boss",
+    async def run(self, prompt: str, approver: Approver | None, *, agent: AgentName = "boss",
                   on_event: EventSink | None = None, usage_limits: UsageLimits | None = None,
                   run_id: str | None = None):
         """Run one agent (the Boss by default) to completion. Returns the PydanticAI run result.

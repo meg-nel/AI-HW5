@@ -222,3 +222,27 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problem 6 and the audit/tools changes to AI-HW5.
 
 *What was lacking:* Neither the Problem 6 prompt nor the audit-trail and new-tools prompt said to save the work to GitHub.
+
+---
+
+## Problem 7: Backend Routes
+
+### Initial prompt
+
+> Perfect thx. Next is Problem 7: Backend Routes. In backend/main.py, use FastAPI and add routes that do the following: return the three tickets and whether each is open or resolved, take a ticket id and run the agent team on the ticket, return recent agent events (what each agent said and which tools they used) so the board can refresh, approve a payment or purchase after a human clicks approve (agents only prepare the pay, this route is what actually changes cash), return the current checking balance from cash_accounts, and reset the data base to the original values when I want to try a fresh run. From the backend/ folder, start the server with uvicorn main:app --reload --port 8000. In output/harness.md, list each route in one line (what URL/what it does)
+
+---
+
+## Problem 8: Agent Dashboard
+
+### Initial prompt
+
+> Next is Problem 8: Agent Dashboard. Build frontend dashboard in frontend/ with React + Vite + TypeScript. The page should call the routes we just built and the board should list all three tickets, let me pick one ticket and start the agent team on it, show each agent and what they're saying/doing while the ticket runs, mark a ticket resolved when the run finishes, show a short summary of what each agent did on the ticket, let a human approve a pay or purchase when asked, and show the checking balance (should drop after an approved pay). Make the dashboard pretty and easy to look through, use relaxing warm colors. It can change like the sunrise going to sunset as the ticket process progresses. Tell the front end to talk to the backend at http://localhost:8000. On the backend, allow the Vite page origin (usually http://localhost:5173) so the browser is allowed to call those routes. Start the board with npm run dev. Write output/design.md with what was chosen for the dashboard look (layout, how agents read differently, how resolved tickets and cash show up) and why
+
+### Follow-up prompts
+
+**Follow-up 1**
+
+> Commit and push Problems 7 and 8 to AI-HW5.
+
+*What was lacking:* Neither the Problem 7 nor the Problem 8 prompt said to save the backend routes and the dashboard to GitHub.

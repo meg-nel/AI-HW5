@@ -430,15 +430,15 @@ All shop facts come from the `campus-customs` MCP server over `data/campus_custo
 
 | Agent | Job | MCP tools it can call |
 |---|---|---|
-| **Boss** | Reads every ticket, sets the money plan, makes the final call, updates tickets. | `get_shop_date`, `list_open_tickets`, `get_ticket`, `update_ticket`, `get_bills_and_cash`, `check_stock`, `list_inventory`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `get_approval`, `list_approvals`, `list_drafts` |
+| **Boss** | Reads every ticket, sets the money plan, makes the final call, updates tickets. | `get_shop_date`, `list_tickets`, `list_open_tickets`, `get_ticket`, `update_ticket`, `get_bills_and_cash`, `check_stock`, `list_inventory`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `get_approval`, `list_approvals`, `list_drafts` |
 | **Inventory** | Stock by SKU and size, shortfalls, which vendor can restock and when. | `get_shop_date`, `get_ticket`, `check_stock`, `list_inventory`, `list_vendors` |
-| **Accounting** | Cash, bills, margins; requests payments and purchase orders for human approval; pays approved bills. | `get_shop_date`, `get_ticket`, `get_bills_and_cash`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `request_payment`, `get_approval`, `list_approvals`, `pay_bill`, `request_purchase_order` |
+| **Accounting** | Cash, bills, margins; *prepares* payments and purchase orders for human approval. It never pays: since Problem 7 the human approval step pays. | `get_shop_date`, `get_ticket`, `get_bills_and_cash`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `request_payment`, `get_approval`, `list_approvals`, `request_purchase_order` |
 | **Facilities** | The lease, rent, and the landlord. | `get_shop_date`, `get_ticket`, `get_lease`, `get_bills_and_cash`, `list_payments` |
 | **Customer Service** | Draft replies to ticket requesters (never sent). | `get_shop_date`, `get_ticket`, `check_stock`, `list_inventory`, `list_vendors`, `list_drafts`, `draft_customer_message`, `discard_draft` |
 
 Every agent also has `delegate_task`, so any agent can hand work to any other (full mesh).
 
-### MCP tools and the tables they use (20 tools)
+### MCP tools and the tables they use (21 tools)
 
 | Tool | Tables read | Tables written | Added |
 |---|---|---|---|
@@ -453,7 +453,8 @@ Every agent also has `delegate_task`, so any agent can hand work to any other (f
 | `request_payment` | `invoices`, `vendors`, `leases`, `desk`, `approvals` | `approvals` | Problem 5 |
 | `request_purchase_order` | `vendors`, `invoices`, `inventory`, `pricing`, `cash_accounts`, `desk` | `approvals` | Problem 5 |
 | `get_approval` | `approvals` | — | Problem 5 |
-| `pay_bill` | `approvals`, `cash_accounts`, `invoices`, `leases`, `desk` | `payments`, `cash_accounts`, `invoices` or `leases`, `approvals` | Problem 5 |
+| `pay_bill` *(human approval step only; no agent has it since Problem 7)* | `approvals`, `cash_accounts`, `invoices`, `leases`, `desk` | `payments`, `cash_accounts`, `invoices` or `leases`, `approvals` | Problem 5 |
+| **`list_tickets`** | `tickets`, `desk` | — | **Problem 7** (all tickets with open/resolved, for `GET /tickets` and the Boss) |
 | `draft_customer_message` | `tickets`, `desk` | `drafts` | Problem 5 |
 | `list_drafts` | `drafts` | — | Problem 5 |
 | `discard_draft` | `drafts`, `desk` | `drafts` | Problem 5 (run #1 fix) |
@@ -499,11 +500,11 @@ Long text is cut to 20,000 characters, with the original length noted. Secrets a
 ### Guardrails a business would want
 | Guardrail | How it's enforced |
 |---|---|
-| A human approves every payment and purchase order | `request_*` → the run pauses for the human → `admin_decide_approval` (hidden from agents) → `pay_bill` accepts only an approved, unused request. The approver's name is stored in `payments.approved_by`. |
+| A human approves every payment and purchase order, and only the human's approval moves cash | Agents only *prepare* requests; no agent has `pay_bill`. On the board, `POST /approvals/{id}/approve` records the decision and calls `pay_bill`. In the terminal runner, the human's "y" does the same. `pay_bill` accepts only an approved, unused request, and the approver's name is stored in `payments.approved_by`. |
 | No overspending | `pay_bill` refuses when cash is short, and a database trigger blocks any negative balance. Amounts come from the database, never from the agent. |
 | Cash only goes out | No tool adds money or records revenue. |
 | Nothing leaves the shop | No email, vendor or landlord tools. Customer messages are drafts with status `draft` or `discarded`, never `sent`. |
-| Least privilege | Each agent sees only the MCP tools its role needs. Only Accounting can pay, and no agent can approve. |
+| Least privilege | Each agent sees only the MCP tools its role needs. Only Accounting can request payments, and no agent can approve or pay. |
 | One source of truth | All shop facts go through the MCP server, and agents can't change inventory, pricing, vendors or the shop date. |
 | No made-up facts | Unknown SKUs, sizes, tickets, vendors, invoices and leases return errors. Prompts require quoting tool results. |
 | Respect vendor holds | `request_purchase_order` refuses a vendor with an open unpaid invoice. |
@@ -529,6 +530,37 @@ Hitting a limit stops the run with `UsageLimitExceeded`. The audit trail records
 
 ### Tests (all offline, no API key)
 - **`tests/test_shop_rules.py`:** 32 checks, including the four new tools.
-- **`tests/test_team_wiring.py`:** 26 checks, covering delegation, tool access, approvals, the audit trail (all node types, appended across runs, numbered in order) and a run stopped by a usage limit.
+- **`tests/test_team_wiring.py`:** 29 checks, covering delegation, tool access, approvals, board mode (requests stay pending, nothing paid), the audit trail (all node types, appended across runs, numbered in order) and a run stopped by a usage limit.
+- **`tests/test_api.py`:** 23 checks of every route, against a temporary database (see Backend routes).
 - **`scripts/mcp_smoke.py`:** passes on the current database. Use `--out <file>` to keep the saved Problem 4 evidence unchanged.
+
+## Backend routes (Problem 7, `backend/main.py`)
+
+Start from the `backend/` folder: `uvicorn main:app --reload --port 8000` (with the venv: `..\.venv\Scripts\uvicorn main:app --reload --port 8000`). Interactive docs: http://localhost:8000/docs
+
+- `GET /tickets` — the three tickets, each with its status and whether it is `open` or `resolved` (MCP `list_tickets`).
+- `POST /tickets/{ticket_id}/run` — runs the agent team on that one ticket in the background and returns a `run_id`. Only one run at a time: 409 if one is running, 404 if the ticket doesn't exist.
+- `GET /runs/current` — status of the latest run (running / completed / error), the approval it is paused on (if any), its Boss report and its token usage.
+- `GET /runs/{run_id}/summary` — short summary of what each agent did in a run: summary, actions, hand-offs, tools used (Problem 8).
+- `GET /events?limit=&after=&run_id=` — recent agent events from the audit trail: what each agent said, which tools it used, delegations and approvals. `after=` lets the board fetch only new events.
+- `GET /approvals?status=pending` — payment and purchase-order requests waiting for a human (MCP `list_approvals`).
+- `POST /approvals/{id}/approve` — a human approves (`{"approved_by": "Meg"}`). For a payment, **this route is what actually pays and changes cash** (MCP `admin_decide_approval` then `pay_bill`). Returns 409 if cash is short or the request is already decided. A purchase order is recorded without moving cash.
+- `POST /approvals/{id}/reject` — a human rejects. Nothing is paid or ordered.
+- `GET /cash` — current checking balance from `cash_accounts` (MCP `get_bills_and_cash`).
+- `POST /reset` — resets `data/campus_customs_new.db` to the original values for a fresh run. Refused while a run is going.
+
+### How the routes keep the rules
+- **Shop data only through MCP.** Every route reads and writes shop data through the `campus-customs` MCP server, the same tools the agents use, called in-process with a FastMCP client. `POST /reset` is the one exception: it copies the original database file back.
+- **Agents only prepare.**
+  - Since Problem 8, a board run **pauses** on each payment or purchase-order request until a human clicks approve or reject. The approve route records the decision and pays, then hands the outcome to the paused run, which carries on and resolves the ticket.
+  - If nobody decides within 30 minutes, the request stays `pending` and the agent reports it as waiting on a human.
+  - Cash moves only when a human calls the approve route.
+- **Human actions are audited.** Each approval, rejection, payment, refused payment and reset is appended to `output/audit_trail.json` (run ID `board`, agent `human`), next to the agent steps. So `GET /events` shows them too.
+- **Runs in their own thread.** Each agent run uses a separate event loop in a background thread, because the MCP server runs as a subprocess, and uvicorn's `--reload` mode on Windows may not support subprocesses. The board keeps responding while agents work.
+- **CORS.** The Vite dashboard origin (`http://localhost:5173`, and `127.0.0.1:5173`) is allowed, so the browser can call every route.
+- **Demo mode.** `CAMPUS_CUSTOMS_DEMO=1` swaps gpt-6-luna for scripted stand-in agents (`backend/demo.py`); everything else is real. It's for trying the board without model calls.
+
+## Agent dashboard (Problem 8, `frontend/`)
+React + Vite + TypeScript, started with `npm run dev` in `frontend/` (http://localhost:5173). It calls the backend at `http://localhost:8000`, and refreshes every 1.2 s during a run and every 5 s otherwise. The design choices are in `output/design.md`.
+
 

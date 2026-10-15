@@ -100,3 +100,15 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problems 3 and 4 to AI-HW5.
 
 *What was lacking:* The Problem 3 and 4 prompts didn't say to save the work to GitHub, so the MCP server, `.mcp.json` and test results were only on my computer.
+
+**Follow-up 3**
+
+> Test each of the three MCP tools and save the evidence in output/mcp_smoke.json. For every tool, include the prompt used to test the tool, the tool name, and the tool output that matches values in data/campus_customs_new.db
+
+*What was lacking:* The earlier test results were a summary table in harness.md, not a machine-readable evidence file showing the test prompt, the tool and its raw output checked against the database.
+
+**Follow-up 4**
+
+> Commit and push the smoke test to AI-HW5.
+
+*What was lacking:* Follow-up 3 didn't say to save the smoke test to GitHub, so `output/mcp_smoke.json` and its script were only on my computer.

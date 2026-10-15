@@ -173,3 +173,21 @@ The server is registered for this project in `.mcp.json` as `campus-customs`, a 
 - Bills total $3,240, leaving $160.
 
 Every result matches the database values in the ticket notes above.
+
+### Smoke-test evidence (`output/mcp_smoke.json`)
+`scripts/mcp_smoke.py` calls each tool once over MCP for its ticket and writes `output/mcp_smoke.json`. For each tool it records:
+- the test prompt
+- the tool name and arguments
+- the raw tool output
+- the plain SQL it ran against `data/campus_customs_new.db`, which doesn't use the server's code
+- a field-by-field match check
+
+Results:
+
+| Ticket | Tool | Fields checked against the database |
+|---|---|---|
+| 101 | `check_stock` | 4 of 4 match |
+| 102 | `get_bills_and_cash` | 9 of 9 match |
+| 103 | `quote_price_margin` | 5 of 5 match |
+
+`all_passed: true`. To re-run: `.venv\Scripts\python scripts\mcp_smoke.py`.

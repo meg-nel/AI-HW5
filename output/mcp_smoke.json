@@ -1,0 +1,296 @@
+{
+  "generated_at": "2026-10-15T01:38:28+00:00",
+  "server": "campus-customs (stdio, launched from .mcp.json)",
+  "database": "data/campus_customs_new.db",
+  "tools_listed_by_server": [
+    "check_stock",
+    "quote_price_margin",
+    "get_bills_and_cash"
+  ],
+  "all_passed": true,
+  "results": [
+    {
+      "ticket": 101,
+      "prompt": "Ticket 101: Tauhid Zaman wants 1 Classic Bulldog Tee (CC-TEE-WHITE) in size S. Can we fill it from the shelf, and if not, how many are we short?",
+      "tool": "check_stock",
+      "arguments": {
+        "sku": "CC-TEE-WHITE",
+        "size": "S",
+        "qty_needed": 1
+      },
+      "is_error": false,
+      "tool_output": {
+        "sku": "CC-TEE-WHITE",
+        "name": "Classic Bulldog Tee",
+        "size": "S",
+        "location": "Aisle B",
+        "qty_on_hand": 0,
+        "qty_needed": 1,
+        "can_fill": false,
+        "shortfall": 1
+      },
+      "db_queries": [
+        {
+          "sql": "SELECT sku, name, size, qty, location FROM inventory WHERE sku = ? AND size = ?",
+          "params": [
+            "CC-TEE-WHITE",
+            "S"
+          ],
+          "rows": [
+            {
+              "sku": "CC-TEE-WHITE",
+              "name": "Classic Bulldog Tee",
+              "size": "S",
+              "qty": 0,
+              "location": "Aisle B"
+            }
+          ]
+        }
+      ],
+      "db_checks": [
+        {
+          "field": "name",
+          "tool_value": "Classic Bulldog Tee",
+          "db_value": "Classic Bulldog Tee",
+          "match": true
+        },
+        {
+          "field": "location",
+          "tool_value": "Aisle B",
+          "db_value": "Aisle B",
+          "match": true
+        },
+        {
+          "field": "qty_on_hand",
+          "tool_value": 0,
+          "db_value": 0,
+          "match": true
+        },
+        {
+          "field": "shortfall",
+          "tool_value": 1,
+          "db_value": 1,
+          "match": true
+        }
+      ],
+      "pass": true
+    },
+    {
+      "ticket": 102,
+      "prompt": "Ticket 102: Elm City Properties says rent on the Chapel Street shop is due. What bills do we owe, when is each due, and how much cash is left after paying them?",
+      "tool": "get_bills_and_cash",
+      "arguments": {},
+      "is_error": false,
+      "tool_output": {
+        "shop_date": "2026-08-31",
+        "cash_accounts": [
+          {
+            "name": "checking",
+            "balance": 3400.0,
+            "date": "2026-08-31"
+          }
+        ],
+        "cash_total": 3400.0,
+        "bills": [
+          {
+            "kind": "invoice",
+            "invoice_id": 501,
+            "payee": "Bulldog Print Co",
+            "vendor_id": 1,
+            "amount": 840.0,
+            "due_date": "2026-08-28",
+            "days_until_due": -3,
+            "overdue": true,
+            "description": "Rush reprint CC-TEE-WHITE S"
+          },
+          {
+            "kind": "rent",
+            "lease_id": 1,
+            "payee": "Elm City Properties",
+            "space_name": "Chapel Street shop",
+            "amount": 2400.0,
+            "due_date": "2026-09-02",
+            "days_until_due": 2,
+            "overdue": false
+          }
+        ],
+        "bills_total": 3240.0,
+        "cash_after_all_bills": 160.0
+      },
+      "db_queries": [
+        {
+          "sql": "SELECT date_today FROM desk",
+          "params": [],
+          "rows": [
+            {
+              "date_today": "2026-08-31"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT name, balance FROM cash_accounts",
+          "params": [],
+          "rows": [
+            {
+              "name": "checking",
+              "balance": 3400.0
+            }
+          ]
+        },
+        {
+          "sql": "SELECT i.id, v.name AS vendor, i.amount, i.due_date FROM invoices i JOIN vendors v ON v.id = i.vendor_id WHERE i.status = 'open'",
+          "params": [],
+          "rows": [
+            {
+              "id": 501,
+              "vendor": "Bulldog Print Co",
+              "amount": 840.0,
+              "due_date": "2026-08-28"
+            }
+          ]
+        },
+        {
+          "sql": "SELECT id, landlord, monthly_rent, next_due FROM leases",
+          "params": [],
+          "rows": [
+            {
+              "id": 1,
+              "landlord": "Elm City Properties",
+              "monthly_rent": 2400.0,
+              "next_due": "2026-09-02"
+            }
+          ]
+        }
+      ],
+      "db_checks": [
+        {
+          "field": "shop_date",
+          "tool_value": "2026-08-31",
+          "db_value": "2026-08-31",
+          "match": true
+        },
+        {
+          "field": "cash_total",
+          "tool_value": 3400.0,
+          "db_value": 3400.0,
+          "match": true
+        },
+        {
+          "field": "invoice 501 payee",
+          "tool_value": "Bulldog Print Co",
+          "db_value": "Bulldog Print Co",
+          "match": true
+        },
+        {
+          "field": "invoice 501 amount",
+          "tool_value": 840.0,
+          "db_value": 840.0,
+          "match": true
+        },
+        {
+          "field": "invoice 501 days_until_due",
+          "tool_value": -3,
+          "db_value": -3,
+          "match": true
+        },
+        {
+          "field": "lease 1 payee",
+          "tool_value": "Elm City Properties",
+          "db_value": "Elm City Properties",
+          "match": true
+        },
+        {
+          "field": "lease 1 rent",
+          "tool_value": 2400.0,
+          "db_value": 2400.0,
+          "match": true
+        },
+        {
+          "field": "lease 1 days_until_due",
+          "tool_value": 2,
+          "db_value": 2,
+          "match": true
+        },
+        {
+          "field": "cash_after_all_bills",
+          "tool_value": 160.0,
+          "db_value": 160.0,
+          "match": true
+        }
+      ],
+      "pass": true
+    },
+    {
+      "ticket": 103,
+      "prompt": "Ticket 103: Yale AI Club wants 20 Basic Hoodie Big Yale (CC-HOOD-NAVY) at a bulk discount. What are the price and margin for 20 hoodies at 10% off list?",
+      "tool": "quote_price_margin",
+      "arguments": {
+        "sku": "CC-HOOD-NAVY",
+        "qty": 20,
+        "discount_pct": 10
+      },
+      "is_error": false,
+      "tool_output": {
+        "sku": "CC-HOOD-NAVY",
+        "qty": 20,
+        "unit_cost": 22.0,
+        "list_price": 58.0,
+        "discount_pct": 10.0,
+        "unit_price": 52.2,
+        "unit_margin": 30.2,
+        "margin_pct": 57.9,
+        "total_price": 1044.0,
+        "total_cost": 440.0,
+        "total_margin": 604.0
+      },
+      "db_queries": [
+        {
+          "sql": "SELECT sku, unit_cost, list_price FROM pricing WHERE sku = ?",
+          "params": [
+            "CC-HOOD-NAVY"
+          ],
+          "rows": [
+            {
+              "sku": "CC-HOOD-NAVY",
+              "unit_cost": 22.0,
+              "list_price": 58.0
+            }
+          ]
+        }
+      ],
+      "db_checks": [
+        {
+          "field": "unit_cost",
+          "tool_value": 22.0,
+          "db_value": 22.0,
+          "match": true
+        },
+        {
+          "field": "list_price",
+          "tool_value": 58.0,
+          "db_value": 58.0,
+          "match": true
+        },
+        {
+          "field": "unit_price (list less discount)",
+          "tool_value": 52.2,
+          "db_value": 52.2,
+          "match": true
+        },
+        {
+          "field": "total_price",
+          "tool_value": 1044.0,
+          "db_value": 1044.0,
+          "match": true
+        },
+        {
+          "field": "total_margin",
+          "tool_value": 604.0,
+          "db_value": 604.0,
+          "match": true
+        }
+      ],
+      "pass": true
+    }
+  ]
+}

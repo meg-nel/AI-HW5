@@ -111,3 +111,65 @@ Today's obligations compete for the same **$3,400**:
 | Remaining | **$160** |
 
 Restocking 12 hoodies for ticket 103 (about $264) would not fit before the AI Club pays. The Boss has to decide the order of payments; it shouldn't be decided one ticket at a time.
+
+## MCP tools
+
+Server: `mcp_server/server.py` (FastMCP, `campus-customs`). Every agent uses these tools.
+
+All three tools are read-only, return only what is in `data/campus_customs_new.db` (plus simple arithmetic on it), and raise an error rather than guess when a SKU, size or record is missing.
+
+### `check_stock(sku, size, qty_needed)`
+- **Reads:** `inventory`
+- **Returns:** product name, shelf location, quantity on hand, whether the order can be filled, and the shortfall.
+- **Unlocks:** **Ticket 101**. Also used for ticket 103.
+- **Why this tool for 101:** Ticket 101 is a one-tee order for `CC-TEE-WHITE` in size S, and `check_stock("CC-TEE-WHITE", "S", 1)` shows 0 on hand and a shortfall of 1, which is the fact that turns a simple sale into a restock problem.
+- **For 103:** `check_stock("CC-HOOD-NAVY", "M", 20)` shows 8 on hand and a shortfall of 12.
+
+### `quote_price_margin(sku, qty, discount_pct)`
+- **Reads:** `pricing`
+- **Returns:** unit cost, list price, discounted unit price, per-unit and total margin, and margin %.
+- **Unlocks:** **Ticket 103**
+- **Why this tool for 103:** Ticket 103 is the Yale AI Club asking for a bulk discount on 20 `CC-HOOD-NAVY` hoodies, and this tool shows exactly what any discount does to profit before the Boss approves the price override. For example:
+
+  | Price | Unit price | Total | Margin |
+  |---|---|---|---|
+  | List | $58 | $1,160 | $720 (62.1%) |
+  | 15% off | $49.30 | $986 | $546 (55.4%) |
+
+### `get_bills_and_cash()`
+- **Reads:** `invoices`, `vendors`, `leases`, `cash_accounts`, `desk`
+- **Returns:** every open invoice and upcoming rent payment with days until due (measured from the shop date in `desk`), next to the cash balance.
+- **Unlocks:** **Ticket 102**. Also covers invoice 501 on ticket 101.
+- **Why this tool for 102:** Ticket 102 is Elm City Properties' notice that rent is due, and this tool puts lease 1's $2,400 rent (due 2026-09-02, 2 days out) next to the $3,400 in checking and the other bill competing for it, so Facilities and Accounting can see the rent is payable but leaves little room.
+- **For 101:** the same call shows invoice 501, $840 to Bulldog Print Co for the S-tee reprint, is 3 days overdue. After both bills, $160 is left.
+
+## MCP connection and tool tests
+
+### Connection (`.mcp.json`)
+The server is registered for this project in `.mcp.json` as `campus-customs`, a stdio server:
+
+- **Command:** the project's `.venv` Python runs `mcp_server/server.py`.
+- **Database:** `CAMPUS_CUSTOMS_DB` points at `data/campus_customs_new.db`.
+- **Paths:** full paths, so the server starts from any folder.
+
+### Test results
+- **How it was tested:** each tool was called over MCP (stdio) with the server started exactly as `.mcp.json` describes.
+- **Date:** 2026-10-14.
+- **Database:** opened read-only and unchanged after the tests.
+
+| Ticket | Call | Result | Pass |
+|---|---|---|---|
+| 101 | `check_stock("CC-TEE-WHITE", "S", 1)` | Classic Bulldog Tee, Aisle B: 0 on hand, can't fill, shortfall 1 | ✅ |
+| 103 | `check_stock("CC-HOOD-NAVY", "M", 20)` | Basic Hoodie Big Yale, Aisle A: 8 on hand, can't fill, shortfall 12 | ✅ |
+| 103 | `quote_price_margin("CC-HOOD-NAVY", 20)` | List price: $58/unit, $1,160 total, $720 margin (62.1%) | ✅ |
+| 103 | `quote_price_margin("CC-HOOD-NAVY", 20, 10)` | 10% off: $52.20/unit, $1,044 total, $604 margin (57.9%) | ✅ |
+| 102 | `get_bills_and_cash()` | See below | ✅ |
+| Error check | `check_stock("CC-MUG-CREST", "M", 1)` | Error: "SKU CC-MUG-CREST has no size M; sizes in inventory: OS" (no made-up answer) | ✅ |
+
+**`get_bills_and_cash()` result (shop date 2026-08-31):**
+- Checking balance: $3,400.
+- Invoice 501, Bulldog Print Co: $840, 3 days overdue.
+- Lease 1 rent, Elm City Properties: $2,400, due in 2 days.
+- Bills total $3,240, leaving $160.
+
+Every result matches the database values in the ticket notes above.

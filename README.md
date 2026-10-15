@@ -10,7 +10,7 @@ React dashboard (:5173)  ──REST + WebSocket──▶  FastAPI backend (:8000
 
 | Folder | What it is |
 |---|---|
-| `mcp_server/` | `campus-customs` MCP server: orders, customers, inventory, vendors, drafts board, approval requests. Seeds demo data into `data/shop.db` on first run. |
+| `mcp_server/` | `campus-customs` MCP server (FastMCP) with three read-only tools over `data/campus_customs_new.db`. See [mcp_server/README.md](mcp_server/README.md). |
 | `backend/` | FastAPI app. Starts the MCP server as a subprocess, runs the agent team, streams every step to `/ws`. |
 | `backend/agents.py` | **The agent roster** (starter placeholders, to be designed in detail). |
 | `dashboard/` | Vite + React dashboard: agent mesh, live activity feed, approvals queue, drafts board, shop tables. |

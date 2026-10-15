@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "campus-customs": {
+      "type": "stdio",
+      "command": "C:\\Users\\megha\\OneDrive\\Desktop\\AI Foundations\\hw5\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\megha\\OneDrive\\Desktop\\AI Foundations\\hw5\\mcp_server\\server.py"],
+      "env": {
+        "CAMPUS_CUSTOMS_DB": "C:\\Users\\megha\\OneDrive\\Desktop\\AI Foundations\\hw5\\data\\campus_customs_new.db"
+      }
+    }
+  }
+}

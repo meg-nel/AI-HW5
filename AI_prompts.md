@@ -70,3 +70,33 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push today's changes to AI-HW5.
 
 *What was lacking:* The first prompt didn't say to save the new database, harness file and other changes to GitHub, so they were only on my computer.
+
+---
+
+## Problem 3: Build the MCP Server
+
+### Initial prompt
+
+> Next is Problem 3: Build the MCP Server. Write an MCP server in mcp_server/ using Fast MCP. It will talk to data/campus_customs_new.db. We don't have to connect or run it yet. Every agent will use the tools in this MCP server. Write three tools we will need for the tickets in the database - keep the names clear, never invent data, and only use information in the database. In output/harness.md, list each of the MCP tools and for every tool, include which table it reads, which ticket it helps unlock (e.g. 101, 102, or 103), and one sentence on why that tool is the right one for that ticket - don't be vague, tie the tool to the ticket. Also add a short mcp_server/README.md file that explains what the MCP server is for, which database file it uses, and the three tools it has
+
+---
+
+## Problem 4: Add the MCP Server to Vibe Coder and Test Each Tool
+
+### Initial prompt
+
+> Next is Problem 4: Add the MCP Server to Vibe Coder and Test Each Tool. Add the MCP server to this project so you can call the tools and save the connection JSON text in .mcp.json
+
+### Follow-up prompts
+
+**Follow-up 1**
+
+> I approved the campus-customs MCP server. Call each tool and record the results.
+
+*What was lacking:* Claude Code only loads a new project MCP server after the user approves it, and the first prompt didn't mention that step, so the tools couldn't be called until I approved it. The first prompt also didn't say where to record the test results.
+
+**Follow-up 2**
+
+> Commit and push Problems 3 and 4 to AI-HW5.
+
+*What was lacking:* The Problem 3 and 4 prompts didn't say to save the work to GitHub, so the MCP server, `.mcp.json` and test results were only on my computer.

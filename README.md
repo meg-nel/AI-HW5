@@ -31,7 +31,7 @@ Needs Python 3.10+, Node 18+, and an Anthropic API key.
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
+copy .env.example .env   # then put your key in .env (it's gitignored)
 .venv\Scripts\uvicorn backend.main:app --reload --port 8000
 ```
 

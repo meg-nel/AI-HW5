@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
-data/
+data/shop.db
 .env
 dashboard/node_modules/
 dashboard/dist/

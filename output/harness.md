@@ -643,7 +643,7 @@ A link like `/?ticket=101&run=<run_id>` opens a specific ticket's run. Those lin
 ### Problem 9 files
 | File | What it is |
 |---|---|
-| `output/desk_tickets.html` | Expected and Actual on each ticket tab with the comparison; the Cash tab itemizes the money |
+| `output/desk_tickets.html` | Expected and Actual on each ticket tab with the comparison; the Cash tab itemizes the money; the Reflection tab (Problem 10) grades each ticket, compares plan and run, and covers what one agent could do and what the team can and can't solve next |
 | `output/resolved_tickets.json` | Per ticket: id, final status, short outcome, what each agent contributed, human approvals, cash, draft |
 | `output/resolved_board.html` | A page you can double-click, with a screenshot of the React board for each resolved ticket (images in `output/resolved_board/`) |
 | `output/runs/ticket_101.json` … `ticket_103.json` | Raw per-run logs: approvals, events, summary, Boss report |

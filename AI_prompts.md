@@ -268,3 +268,19 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problem 9 to AI-HW5.
 
 *What was lacking:* The Problem 9 prompt didn't say to save the resolved-ticket results, pages and fixes to GitHub.
+
+---
+
+## Problem 10: Reflection
+
+### Initial prompt
+
+> Thx. Last is Problem 10: Reflection. Pls fill out this tab with responses to the following questions: how would you evaluate the performance of the agents on each ticket and why? for each ticket, how did Actual compare to the Expected plan written earlier? What would have been simpler as one agent with tools and why? Describe three new problems Campus Customs might face that this agent team could solve with the tools built. Describe three new problems Campus Customs might face that this agent team could not solve and explain the tools and agents you would need to solve them
+
+### Follow-up prompts
+
+**Follow-up 1**
+
+> Commit and push Problem 10 to AI-HW5.
+
+*What was lacking:* The Problem 10 prompt didn't say to save the Reflection tab to GitHub.

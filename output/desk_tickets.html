@@ -115,6 +115,10 @@
   .ledger td.neg { color: #a5483a; font-weight: 600; }
   .ledger tr.start td, .ledger tr.end td { background: var(--blue-100) !important; font-weight: 600; }
   .ledger tr.sub td { color: var(--muted); }
+  #panel-reflection td.agent { white-space: normal; }
+  #panel-reflection .muted { display: block; color: var(--muted); font-weight: 400; font-size: 13.5px; margin-top: 4px; }
+  #panel-reflection .context ul { margin: 8px 0 0; }
+  #panel-reflection ul.diffs ul { margin: 4px 0; }
 </style>
 </head>
 <body>
@@ -379,11 +383,120 @@
 <!-- ============================== REFLECTION (later problem) ============================== -->
 <section role="tabpanel" id="panel-reflection" aria-labelledby="tab-reflection" hidden>
   <h2>Reflection</h2>
-  <div class="card empty"><span class="icon" aria-hidden="true">&#9675;</span>Left blank for a later problem.</div>
+  <p class="sub">Written after the Problem 9 runs (gpt-6-luna, one ticket at a time, human approver Meg). Numbers come from <code>output/runs/</code>, <code>output/audit_trail.json</code> and the database.</p>
+
+  <!-- 1. Performance -->
+  <div class="card expected">
+    <span class="section-label">1 · Performance</span>
+    <h3>How well did the agents do on each ticket, and why?</h3>
+    <table>
+      <thead><tr><th style="width:14%">Ticket</th><th style="width:10%">Grade</th><th>What went well</th><th>What held it back</th></tr></thead>
+      <tbody>
+        <tr><td class="agent">101 Bulldog tee</td><td><span class="badge ok">A−</span></td>
+          <td>Got the one thing that mattered right: Bulldog Print Co won't ship while invoice 501 is open, so the Boss had Accounting pay the $840 <em>before</em> asking for the $8 tee order. All numbers in briefs and reports were real (0 on hand, 3 days overdue, $3,400 → $2,560). The draft to Tauhid gave Sept 5 as an estimate, not a promise.</td>
+          <td>Heavy for a one-tee order: 23 model calls, 31 tool calls, ~95k tokens. Accounting alone made 13 tool calls, re-reading <code>list_vendors</code> and <code>get_bills_and_cash</code> three times each. Every agent re-read the same ticket.</td></tr>
+        <tr><td class="agent">102 Rent due</td><td><span class="badge ok">A</span></td>
+          <td>The cleanest run: the right specialist first (Facilities), it confirmed the notice matched lease 1 and rent wasn't already paid, and Accounting requested exactly $2,400. The approval step paid it, moved the lease due date to 2026-10-02 and left $160. The landlord draft correctly says "we have paid", with the shop as the payer.</td>
+          <td>Still 19 model calls for one bill. Facilities said honestly that it couldn't find a late-fee rule, which was right, but it could have used <code>get_lease</code> directly instead of going through the ticket.</td></tr>
+        <tr><td class="agent">103 Hoodie discount</td><td><span class="badge diff">B+</span></td>
+          <td>Good process: margins first (0/10/15/20%), then stock (8 of 20), then one purchase order for the 12 short. The $104 cash shortfall was stated plainly so the human could decide. The draft quoted the customer's price ($49.30, $986) without cost or margin.</td>
+          <td>The discount is the weakest decision of the run. 15% was reasonable (55.4% margin), but there's no policy behind it: run #1 chose 10% for the same facts. The Boss also re-checked stock itself, duplicating Inventory. And it approved an order the shop can't yet pay for, leaving the real risk to the human click.</td></tr>
+      </tbody>
+    </table>
+    <div class="context"><b>Across all three:</b>
+      <ul>
+        <li>No rule was broken: the shop date was used for every date, lead times came from the vendors table, the vendor block was respected, nothing was paid without a human, cash never went negative, and nothing was sent.</li>
+        <li>The weaknesses are cost and consistency, not correctness: ~240k tokens for three small tickets, and a judgment call (the discount) that changes from run to run.</li>
+      </ul></div>
+  </div>
+
+  <!-- 2. Expected vs actual -->
+  <div class="card expected">
+    <span class="section-label">2 · Expected vs. actual</span>
+    <h3>How Actual compared with the plan written in Problem 6</h3>
+    <table>
+      <thead><tr><th style="width:14%">Ticket</th><th>Matched the plan</th><th>Differed from the plan</th></tr></thead>
+      <tbody>
+        <tr><td class="agent">101</td>
+          <td>Boss called <b>Inventory</b> first, as planned. All four hand-offs in order: Inventory → Accounting (numbers only) → Accounting (money plan) → Customer Service. Both approvals (invoice $840 paid, tee PO $8), cash $3,400 → $2,560, one unsent draft with Sept 5.</td>
+          <td>Ended <code>resolved</code> instead of the planned <code>waiting_on_vendor</code>, because the board prompt (Problem 8) tells the Boss to resolve once the desk work is done. Accounting used more read tools than planned (<code>list_approvals</code>, <code>list_payments</code>, repeats); the Boss skipped <code>list_vendors</code>.</td></tr>
+        <tr><td class="agent">102</td>
+          <td>Boss called <b>Facilities</b> first. Four hand-offs as planned; rent approved and paid; $160 left; lease next due 2026-10-02; <code>resolved</code>; "we have paid" wording.</td>
+          <td>The plan assumed one money plan for the whole shop (invoice 501, then rent). Running tickets one at a time meant invoice 501 was already paid by 101, so 102's plan had only rent and started from $2,560. Facilities read the lease via <code>get_ticket</code>, not <code>get_lease</code>.</td></tr>
+        <tr><td class="agent">103</td>
+          <td>Boss called <b>Accounting</b> first, for margins. Four hand-offs as planned; the PO for 12 at $264 was requested with the $104 shortfall shown and decided by a human; the draft had the price and no margin.</td>
+          <td><code>resolved</code> instead of <code>waiting_on_vendor</code> (same reason as 101). Inventory didn't need <code>list_inventory</code> (the club only wanted size M). The plan left the discount open; the Boss chose 15%.</td></tr>
+      </tbody>
+    </table>
+    <p class="context"><b>Takeaway:</b> the routing plan was accurate; every "first call" and every hand-off matched. Where actual and expected differed, the cause was a rule we added later (the resolve-on-board prompt) or the order the tickets ran in, not agents going off-script.</p>
+  </div>
+
+  <!-- 3. One agent -->
+  <div class="card expected">
+    <span class="section-label">3 · One agent instead of five</span>
+    <h3>What would have been simpler as one agent with tools, and why?</h3>
+    <ul class="diffs">
+      <li><b>Ticket 102 (rent) is the clearest case.</b> One agent with <code>get_lease</code>, <code>get_bills_and_cash</code>, <code>request_payment</code> and <code>draft_customer_message</code> could do it in about five tool calls. The team needed 19 model calls and 23 tool calls, mostly hand-off overhead: the Boss wrote briefs, each specialist re-read the ticket, and wrote a report the Boss then re-read.</li>
+      <li><b>Ticket 101 is also simple sequential work:</b> check stock, see the vendor block, pay the invoice, order the tee, draft the reply. There's no real parallel work and no step that needs a different expertise or model. A single agent would avoid passing the same facts through four briefs, where each hand-off is a chance to lose or restate a number.</li>
+      <li><b>Why one agent would be simpler here:</b>
+        <ul>
+          <li><b>The rules don't depend on the agents.</b> They're enforced in the MCP server: human approval, no negative cash, vendor block, drafts only. So the safety we get from splitting roles mostly comes from the tool layer, not from having five agents. A single agent behind the same server would be just as safe.</li>
+          <li><b>Lower cost and fewer moving parts.</b> Fewer tokens (~240k across three small tickets) and one conversation to debug instead of five.</li>
+        </ul></li>
+      <li><b>Where the team still earns its keep:</b>
+        <ul>
+          <li><b>Least privilege per role:</b> only Accounting can request money.</li>
+          <li><b>Shorter, focused prompts per job.</b></li>
+          <li><b>A natural fit for more tickets</b> or different models per role, for example a cheaper model for Inventory lookups.</li>
+        </ul>
+        For three small tickets, one agent with the same tools and the same approval gate would have been simpler.</li>
+    </ul>
+  </div>
+
+  <!-- 4. Can solve -->
+  <div class="card expected">
+    <span class="section-label">4 · New problems the team can already solve</span>
+    <h3>Three problems Campus Customs might face next, solvable with today's tools</h3>
+    <table>
+      <thead><tr><th style="width:24%">Problem</th><th>How the team would handle it</th><th style="width:30%">Tools it would use</th></tr></thead>
+      <tbody>
+        <tr><td class="agent">1. A new club order for sizes that are in stock<br><span class="muted">e.g. 10 navy hoodies in L, with a small discount</span></td>
+          <td>Boss routes to Inventory: L has 14, so it can be filled from the shelf. Accounting quotes the margin at 0% and 10%, and the Boss decides. Customer Service drafts the confirmation, and the Boss updates the ticket. No money moves, so no approval is needed.</td>
+          <td><code>get_ticket</code>, <code>check_stock</code>, <code>list_inventory</code>, <code>quote_price_margin</code>, <code>draft_customer_message</code>, <code>update_ticket</code></td></tr>
+        <tr><td class="agent">2. The October cash crunch<br><span class="muted">rent $2,400 due 2026-10-02 plus vendor invoices for the $272 of approved orders, with only $160 in checking</span></td>
+          <td>Accounting lays out every bill and its due date against $160 and shows exactly what can't be covered. Facilities confirms the lease date. The Boss sets the payment order and requests only what fits. <code>pay_bill</code> refuses the rest, and the human sees the shortfall at each approval.</td>
+          <td><code>get_bills_and_cash</code>, <code>get_lease</code>, <code>list_payments</code>, <code>list_approvals</code>, <code>request_payment</code>, human approval</td></tr>
+        <tr><td class="agent">3. Restocking items that are low or out<br><span class="muted">the Crest Mug is at 0, and the white tee in S is gone</span></td>
+          <td>Inventory scans the shelf and matches vendors by specialty: Elm City Gifts for mugs (3-day lead), Bulldog Print Co for apparel (5-day). Accounting checks neither vendor is blocked by an unpaid invoice and requests purchase orders for human approval, showing cost against cash.</td>
+          <td><code>list_inventory</code>, <code>list_vendors</code>, <code>quote_price_margin</code>, <code>request_purchase_order</code>, human approval</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. Cannot solve -->
+  <div class="card expected">
+    <span class="section-label">5 · New problems the team cannot solve yet</span>
+    <h3>Three problems that need new tools and agents</h3>
+    <table>
+      <thead><tr><th style="width:22%">Problem</th><th style="width:28%">Why today's team can't</th><th>What we'd add</th></tr></thead>
+      <tbody>
+        <tr><td class="agent">1. Getting paid by customers<br><span class="muted">Yale AI Club owes $986; the shop needs that money to cover October</span></td>
+          <td>"Cash only goes out" was a rule: there's no table or tool for sales, customer invoices or money coming in, so the team can't invoice the club, record a payment, or count it toward October's bills.</td>
+          <td><b>Tables:</b> <code>sales</code>, <code>customer_invoices</code>, <code>receipts</code>. <b>MCP tools:</b> <code>create_customer_invoice</code>, <code>record_payment_received</code> (human-confirmed against the bank), <code>cash_forecast</code>. <b>Agent:</b> a <b>Billing / Receivables</b> agent that invoices customers, follows up on overdue ones (as drafts), and gives Accounting a forecast that includes money coming in.</td></tr>
+        <tr><td class="agent">2. Receiving goods and filling orders<br><span class="muted">the 1 tee and 12 hoodies arrive around Sept 5</span></td>
+          <td>Inventory counts never change: no tool receives a shipment, ships an order, or turns an approved purchase order into a vendor invoice. Approved orders live only in <code>approvals</code>, and "resolved" tickets can't move to "fulfilled".</td>
+          <td><b>Tables:</b> <code>purchase_orders</code> (with status), <code>shipments</code>. <b>MCP tools:</b> <code>receive_shipment(po_id)</code> (adds stock and creates the vendor invoice), <code>fulfill_order(ticket_id)</code> (removes stock), <code>mark_picked_up</code>. <b>Agent:</b> a <b>Fulfillment / Receiving</b> agent that checks deliveries against orders, updates stock, and tells Customer Service when a customer's order is ready.</td></tr>
+        <tr><td class="agent">3. Real communication: new requests in, approved messages out<br><span class="muted">a club emails a new order; Tauhid's draft needs to reach Tauhid</span></td>
+          <td>Tickets only exist if someone adds them to the database, and nothing can be sent: drafts stay drafts by design. Vendors are also picked by matching specialty text, because there's no vendor catalog with prices.</td>
+          <td><b>MCP tools:</b> <code>read_inbox</code> → <code>create_ticket</code>, <code>send_message(draft_id)</code> that only works after a human approves the draft (same pattern as <code>pay_bill</code>), and <code>vendor_catalog(sku)</code> backed by a <code>vendor_products</code> table. <b>Agent:</b> an <b>Intake</b> agent that turns emails into tickets and routes them to the Boss. Customer Service would gain "send after approval".</td></tr>
+      </tbody>
+    </table>
+    <p class="context"><b>The pattern to keep for every new capability:</b> put the rule in the MCP server, make anything that moves money or leaves the shop wait for a human, and audit every step. That's what made the current team safe to run.</p>
+  </div>
 </section>
 
 </main>
-<footer>Expected sections written 2026-10-14 from the original database values, before wiring the backend. Actual sections and the Cash tab were filled from the Problem 9 runs on 2026-10-14.</footer>
+<footer>Expected sections written 2026-10-14 from the original database values, before wiring the backend. Actual sections and the Cash tab were filled from the Problem 9 runs on 2026-10-14; the Reflection tab was written for Problem 10.</footer>
 
 <script>
   // Plain tabs: click or use arrow keys. The URL hash (#101, #cash, ...) keeps the open tab on reload.

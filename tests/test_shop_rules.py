@@ -132,6 +132,21 @@ async def main() -> None:
         ok(paid_rent["updated_bill"]["next_due"] == "2026-10-02" and paid_rent["cash_account"]["balance"] == 160.0,
            "rent paid: lease next_due moves to 2026-10-02, cash $160")
 
+        print("New lookup tools")
+        hoods = await call(c, "list_inventory", sku="CC-HOOD-NAVY")
+        ok([(i["size"], i["qty"]) for i in hoods["items"]] == [("L", 14), ("M", 8), ("S", 4), ("XL", 6)]
+           and hoods["total_units"] == 32, "list_inventory shows every size of a SKU from inventory")
+        ok(sum(i["out_of_stock"] for i in (await call(c, "list_inventory"))["items"]) == 2,
+           "list_inventory flags the 2 out-of-stock rows (S tee, crest mug)")
+        lease = await call(c, "get_lease", lease_id=1)
+        ok(lease["lease"]["next_due"] == "2026-10-02" and [p["amount"] for p in lease["rent_payments"]] == [2400.0],
+           "get_lease shows the new due date and the rent payment made against it")
+        pays = await call(c, "list_payments")
+        ok(pays["total_paid"] == 3240.0 and len(pays["payments"]) == 2, "list_payments totals what was paid out")
+        ok([a["status"] for a in await call(c, "list_approvals")] == ["rejected", "paid", "pending", "paid"],
+           "list_approvals shows every request and the human's decision (read-only)")
+        ok("admin_list_approvals" not in tools, "the old admin-only list tool is gone; listing is now read-only for agents")
+
         print("Drafts and tickets")
         draft = await call(c, "draft_customer_message", ticket_id=101, subject="Your tee", body="Hi", author="customer_service")
         ok(draft["recipient"] == "Tauhid Zaman" and draft["status"] == "draft", "draft goes to the ticket's requester, unsent")

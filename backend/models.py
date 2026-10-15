@@ -7,6 +7,9 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+from pydantic_ai import UsageLimits
+
+from backend.audit import AuditTrail
 
 AgentName = Literal["boss", "inventory", "accounting", "facilities", "customer_service"]
 AGENT_NAMES: tuple[AgentName, ...] = ("boss", "inventory", "accounting", "facilities", "customer_service")
@@ -41,20 +44,29 @@ EventSink = Callable[[dict[str, Any]], None]
 
 @dataclass
 class TeamDeps:
-    """Passed to every agent run. `agent` is who is running; `chain` is who delegated to them."""
+    """Passed to every agent run. `agent` is who is running; `chain` is who delegated to them.
+
+    Every event goes to the audit trail (if set) and to on_event (e.g. the terminal printer).
+    usage_limits is shared by the whole run, including delegated agents.
+    """
     agent: AgentName
     approver: Approver
+    usage_limits: UsageLimits
+    run_id: str = ""
     chain: list[AgentName] = field(default_factory=list)
     max_delegation_depth: int = 3
-    request_limit: int = 150
     on_event: EventSink | None = None
+    audit: AuditTrail | None = None
 
     def for_delegate(self, to_agent: AgentName) -> TeamDeps:
         return replace(self, agent=to_agent, chain=[*self.chain, self.agent])
 
     def emit(self, type_: str, **data: Any) -> None:
+        event = {"type": type_, "agent": self.agent, "chain": list(self.chain), **data}
+        if self.audit:
+            self.audit.append({"run_id": self.run_id, **event})
         if self.on_event:
-            self.on_event({"type": type_, "agent": self.agent, "chain": list(self.chain), **data})
+            self.on_event(event)
 
 
 # ---------- agent outputs ----------

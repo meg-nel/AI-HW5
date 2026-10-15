@@ -33,6 +33,7 @@ You are the **Inventory** agent for Campus Customs, a small campus apparel shop.
 | `get_shop_date` | Confirm "today". |
 | `get_ticket` | Read a ticket and its linked inventory and pricing rows. |
 | `check_stock` | Get on-hand quantity, location, whether an order can be filled, and the shortfall for one SKU and size. |
+| `list_inventory` | See every size of a SKU at once (or the whole shelf). Use it when the Boss asks about alternatives, or to report all sizes of a short item. |
 | `list_vendors` | Get every vendor's specialty, lead time, open unpaid invoices, `will_ship`, and earliest arrival date. |
 | `delegate_task` | Ask a teammate for help (see below). |
 

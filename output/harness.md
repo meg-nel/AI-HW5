@@ -211,16 +211,7 @@ Results:
 - **Logging:** every delegation, tool call, and approval is logged with the chain, for example `boss -> accounting`.
 
 ### Tool access per agent
-
-| Agent | MCP tools |
-|---|---|
-| Boss | `get_shop_date`, `list_open_tickets`, `get_ticket`, `update_ticket`, `get_bills_and_cash`, `check_stock`, `quote_price_margin`, `list_vendors`, `get_approval`, `list_drafts` |
-| Inventory | `get_shop_date`, `get_ticket`, `check_stock`, `list_vendors` |
-| Accounting | `get_shop_date`, `get_ticket`, `get_bills_and_cash`, `quote_price_margin`, `list_vendors`, `request_payment`, `get_approval`, `pay_bill`, `request_purchase_order` |
-| Facilities | `get_shop_date`, `get_ticket`, `get_bills_and_cash` |
-| Customer Service | `get_shop_date`, `get_ticket`, `check_stock`, `list_vendors`, `list_drafts`, `draft_customer_message`, `discard_draft` |
-
-`admin_list_approvals` and `admin_decide_approval` are hidden from every agent. Only the human approval step uses them.
+Moved to **Agents and MCP tools (current)** at the end of this file, which also lists the tools added later.
 
 ## New MCP tools (Problem 5)
 
@@ -430,3 +421,114 @@ The Boss's cash: $3,400 at the start, $160 at the end. Nothing is left in `needs
 ### Notes for later
 - **The discount changed between runs:** 10% in run #1, 15% in run #2. No shop rule sets a discount limit, so this is the Boss's own judgment. Add a margin floor to the Boss prompt if the discount should be consistent.
 - **Approved orders vs. cash:** the two orders will be invoiced at $272, against $160 left. That was the human's call at the prompt. When those invoices arrive, `pay_bill` will refuse anything cash can't cover.
+
+## Agents and MCP tools (current)
+
+All shop facts come from the `campus-customs` MCP server over `data/campus_customs_new.db`. The backend has no shop tools of its own that bypass it. The only non-MCP tool is `delegate_task`, which hands work to a teammate and touches no shop data.
+
+### Agents
+
+| Agent | Job | MCP tools it can call |
+|---|---|---|
+| **Boss** | Reads every ticket, sets the money plan, makes the final call, updates tickets. | `get_shop_date`, `list_open_tickets`, `get_ticket`, `update_ticket`, `get_bills_and_cash`, `check_stock`, `list_inventory`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `get_approval`, `list_approvals`, `list_drafts` |
+| **Inventory** | Stock by SKU and size, shortfalls, which vendor can restock and when. | `get_shop_date`, `get_ticket`, `check_stock`, `list_inventory`, `list_vendors` |
+| **Accounting** | Cash, bills, margins; requests payments and purchase orders for human approval; pays approved bills. | `get_shop_date`, `get_ticket`, `get_bills_and_cash`, `quote_price_margin`, `list_vendors`, `get_lease`, `list_payments`, `request_payment`, `get_approval`, `list_approvals`, `pay_bill`, `request_purchase_order` |
+| **Facilities** | The lease, rent, and the landlord. | `get_shop_date`, `get_ticket`, `get_lease`, `get_bills_and_cash`, `list_payments` |
+| **Customer Service** | Draft replies to ticket requesters (never sent). | `get_shop_date`, `get_ticket`, `check_stock`, `list_inventory`, `list_vendors`, `list_drafts`, `draft_customer_message`, `discard_draft` |
+
+Every agent also has `delegate_task`, so any agent can hand work to any other (full mesh).
+
+### MCP tools and the tables they use (20 tools)
+
+| Tool | Tables read | Tables written | Added |
+|---|---|---|---|
+| `check_stock` | `inventory` | — | Problem 3 |
+| `quote_price_margin` | `pricing` | — | Problem 3 |
+| `get_bills_and_cash` | `invoices`, `vendors`, `leases`, `cash_accounts`, `desk` | — | Problem 3 |
+| `get_shop_date` | `desk` | — | Problem 5 |
+| `list_open_tickets` | `tickets`, `desk` | — | Problem 5 |
+| `get_ticket` | `tickets`, `inventory`, `pricing`, `invoices`, `vendors`, `leases`, `desk` | — | Problem 5 |
+| `update_ticket` | `tickets`, `desk` | `tickets` | Problem 5 |
+| `list_vendors` | `vendors`, `invoices`, `desk` | — | Problem 5 |
+| `request_payment` | `invoices`, `vendors`, `leases`, `desk`, `approvals` | `approvals` | Problem 5 |
+| `request_purchase_order` | `vendors`, `invoices`, `inventory`, `pricing`, `cash_accounts`, `desk` | `approvals` | Problem 5 |
+| `get_approval` | `approvals` | — | Problem 5 |
+| `pay_bill` | `approvals`, `cash_accounts`, `invoices`, `leases`, `desk` | `payments`, `cash_accounts`, `invoices` or `leases`, `approvals` | Problem 5 |
+| `draft_customer_message` | `tickets`, `desk` | `drafts` | Problem 5 |
+| `list_drafts` | `drafts` | — | Problem 5 |
+| `discard_draft` | `drafts`, `desk` | `drafts` | Problem 5 (run #1 fix) |
+| `admin_decide_approval` *(human only, hidden from agents)* | `approvals`, `desk` | `approvals` | Problem 5 |
+| **`list_inventory`** | `inventory` | — | **New** |
+| **`get_lease`** | `leases`, `payments`, `desk` | — | **New** |
+| **`list_payments`** | `payments` | — | **New** |
+| **`list_approvals`** | `approvals` | — | **New** (read-only; replaces the hidden `admin_list_approvals`) |
+
+### Why the new tools
+- **`list_inventory`:** shows every size of a SKU at once. Inventory and Customer Service can check alternatives for ticket 103 (the navy hoodie has 4 in S, 8 in M, 14 in L, 6 in XL) instead of one `check_stock` call per size.
+- **`get_lease`:** shows lease 1 and the rent already paid against it, so Facilities can confirm rent for ticket 102 is paid and the next due date has moved, without going through a ticket.
+- **`list_payments`:** shows every payment made so far, so Accounting and the Boss never pay invoice 501 or the rent twice.
+- **`list_approvals`:** shows every request and the human's decision, so Accounting doesn't re-request something a human rejected. It is read-only: deciding a request is still only possible through the hidden `admin_decide_approval`.
+
+`approvals` and `drafts` are helper tables the MCP server adds to the working copy (re-created after a reset). Every other table comes from the original database.
+
+## Audit trail (`output/audit_trail.json`)
+
+- **What's recorded:** every agent-loop step, appended to `output/audit_trail.json` as it happens (`backend/audit.py`).
+- **Never wiped:** each run adds to the file, and earlier runs are kept.
+- **Safe writes:** each write replaces the file in one step (atomic), so a crash can't leave a half-written file. An unreadable file is set aside, never overwritten.
+- **Test runs are kept separate:** the test suites write to a temporary file instead (`CAMPUS_CUSTOMS_AUDIT`).
+
+**Fields on every entry:** `run_id`, `seq` (order within the run), `ts` (UTC), `type`, `agent`, and `chain` (who delegated to this agent, e.g. `["boss"]`).
+
+| Entry `type` | What it records |
+|---|---|
+| `run_start` | The task prompt, the model, every usage limit, the database path, a hash of each agent's prompt file (to show which prompt version ran), and each agent's tool list |
+| `loop_step` (`node`: `user_prompt`) | The prompt the agent was given |
+| `loop_step` (`node`: `model_request`) | What went to the model: tool results, retry prompts, user prompt |
+| `loop_step` (`node`: `model_response`) | The model's reply: text, tool calls with arguments and IDs, input/output tokens, model name, finish reason |
+| `loop_step` (`node`: `end`) | The agent's final structured report |
+| `tool_call` / `tool_result` | Every MCP call with arguments, and its result or error |
+| `delegation` / `delegation_result` / `delegation_refused` | Who handed what to whom, the full brief, and the report that came back |
+| `approval_requested` / `approval_decided` | The request (amount, payee or order, reason) and the human's name, decision and note |
+| `run_end` | `completed` with the output and total usage, or `error` with the reason (e.g. a usage limit hit) |
+
+Long text is cut to 20,000 characters, with the original length noted. Secrets are never recorded: no environment variables or keys.
+
+## Safety
+
+### Guardrails a business would want
+| Guardrail | How it's enforced |
+|---|---|
+| A human approves every payment and purchase order | `request_*` → the run pauses for the human → `admin_decide_approval` (hidden from agents) → `pay_bill` accepts only an approved, unused request. The approver's name is stored in `payments.approved_by`. |
+| No overspending | `pay_bill` refuses when cash is short, and a database trigger blocks any negative balance. Amounts come from the database, never from the agent. |
+| Cash only goes out | No tool adds money or records revenue. |
+| Nothing leaves the shop | No email, vendor or landlord tools. Customer messages are drafts with status `draft` or `discarded`, never `sent`. |
+| Least privilege | Each agent sees only the MCP tools its role needs. Only Accounting can pay, and no agent can approve. |
+| One source of truth | All shop facts go through the MCP server, and agents can't change inventory, pricing, vendors or the shop date. |
+| No made-up facts | Unknown SKUs, sizes, tickets, vendors, invoices and leases return errors. Prompts require quoting tool results. |
+| Respect vendor holds | `request_purchase_order` refuses a vendor with an open unpaid invoice. |
+| Clear roles | The Boss sets the money plan; Accounting only requests what the plan lists. |
+| Repeatable runs | Full runs reset the working database from the read-only original first. |
+| Accountability | Every step, tool call, delegation and approval goes to the append-only audit trail with a run ID. |
+| Secrets stay local | The API key lives in `.env`, which is gitignored and never written to the audit trail or the reports. |
+
+### Limits that keep token use in check
+Set in `backend/agents.py`. One budget covers the whole run, including every delegated agent.
+
+| Limit | Value | Why |
+|---|---|---|
+| Model requests per run | 60 | Run #2 needed 31 for all three tickets. |
+| Tool calls per run | 120 | Run #2 made 51. |
+| Total tokens per run | 400,000 | Run #2 used about 146,600. |
+| Output tokens per model response | 8,000 | Caps a single runaway answer. |
+| Delegation depth | 3 | Stops A → B → A loops. |
+| Agent retries on bad output | 2 | Stops endless re-tries. |
+| Self-delegation | Refused | An agent can't hand work to itself. |
+
+Hitting a limit stops the run with `UsageLimitExceeded`. The audit trail records `run_end` with `status: error`, and the run report is still saved. These limits are tested in `tests/test_team_wiring.py`.
+
+### Tests (all offline, no API key)
+- **`tests/test_shop_rules.py`:** 32 checks, including the four new tools.
+- **`tests/test_team_wiring.py`:** 26 checks, covering delegation, tool access, approvals, the audit trail (all node types, appended across runs, numbered in order) and a run stopped by a usage limit.
+- **`scripts/mcp_smoke.py`:** passes on the current database. Use `--out <file>` to keep the saved Problem 4 evidence unchanged.
+

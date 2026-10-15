@@ -7,8 +7,9 @@ Run from the project root:
 Options:
     --no-reset   keep the current database instead of restoring the original values
 
-Writes output/run_report.json: the Boss's report, every event (delegations, tool calls,
-approvals), and the database tables the run changed.
+Writes output/run_report.json (this run only): the Boss's report, every event (delegations,
+tool calls, approvals), and the database tables the run changed. Every agent-loop step is also
+appended to output/audit_trail.json, which keeps all runs.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import json
 import os
 import sqlite3
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -133,14 +135,17 @@ async def main() -> int:
 
     team = CampusCustomsTeam()
     started = datetime.now(timezone.utc)
+    run_id = f"{started:%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:6]}"
+    print(f"Run {run_id}: every step is appended to output/audit_trail.json")
     result, error = None, None
     try:
-        result = await team.run(args.prompt, make_terminal_approver(human), on_event=on_event)
+        result = await team.run(args.prompt, make_terminal_approver(human), on_event=on_event, run_id=run_id)
     except BaseException as e:  # still save what happened, including Ctrl-C
         error = f"{type(e).__name__}: {e}"
         raise
     finally:
-        save_report(build_report(started, not args.no_reset, events, result, error))
+        report = build_report(started, not args.no_reset, events, result, error)
+        save_report({"run_id": run_id, **report})
     print("\n" + json.dumps(result.output.model_dump(), indent=2))
     return 0
 

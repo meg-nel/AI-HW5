@@ -194,3 +194,31 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problem 5 to AI-HW5.
 
 *What was lacking:* None of the Problem 5 prompts said to save the agent team, the fixes and the run results to GitHub.
+
+**Follow-up 13**
+
+> Add any tools the agents need to the MCP server so they can work on the open tickets. Shop facts come from the MCP server over data/campus_customs_new.db - do not invent a second shop tools layer that bypasses MCP. Wire the agents so they append to output/audit_trail.json as they run: for each agent-loop step, record enough to audit later. Append to this file, do not wipe it each run. In output/harness.md, list each agent and each MCP tools including the ones we just added along with which table the tool uses. Also add a short safety section with guardrails a business would want plus limits that keep token use in check. Update mcp_server/README.md so the tool list matches what we have now
+
+*What was lacking:* The team had no lasting, step-by-step record of what each agent did (only the per-run report, which is replaced each run), no token limits beyond a request cap, and a few lookups the agents needed (all sizes of a SKU, a lease, past payments, all approval requests) weren't available as MCP tools.
+
+---
+
+## Problem 6: Plan the Three Tickets
+
+### Initial prompt
+
+> Thx. Next is Problem 6: Plan the Three Tickets. Before wiring the backend, write down what we expect the team to do on each open ticket. Build output/desk_tickets.html - a page we can double click with one tab per ticket (101, 102, and 103)> Also add empty Cash and Reflection tabs for later problems, you can leave them blank for now. On each ticket tab, fill an Expected section and leave room for an Actual section we can fill after running the agents. For each ticket's Expected section, write who the Boss should call first and why, all the agent delegations expected, and which MCP tools the run is expected to use
+
+### Follow-up prompts
+
+**Follow-up 1**
+
+> Make the html page easy to read and pretty with a blue and white theme
+
+*What was lacking:* The first prompt described the page's content and tabs but not how it should look, so the first version used a dark navy header with mixed accent colors.
+
+**Follow-up 2**
+
+> Commit and push Problem 6 and the audit/tools changes to AI-HW5.
+
+*What was lacking:* Neither the Problem 6 prompt nor the audit-trail and new-tools prompt said to save the work to GitHub.

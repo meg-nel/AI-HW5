@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import sqlite3
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -95,24 +96,29 @@ def verify(test: dict, out: dict) -> tuple[list[dict], list[dict]]:
         }
         rows = {k: db_rows(q) for k, q in queries.items()}
         today = date.fromisoformat(rows["desk"][0]["date_today"])
-        inv = rows["invoices"][0]
-        lease = rows["leases"][0]
         bills = {b.get("invoice_id") or f"lease-{b.get('lease_id')}": b for b in out["bills"]}
         cash = sum(r["balance"] for r in rows["cash"])
         owed = sum(r["amount"] for r in rows["invoices"]) + sum(r["monthly_rent"] for r in rows["leases"])
-        return [{"sql": q, "params": [], "rows": rows[k]} for k, q in queries.items()], [
-            check("shop_date", out["shop_date"], today.isoformat()),
-            check("cash_total", out["cash_total"], cash),
-            check(f"invoice {inv['id']} payee", bills[inv["id"]]["payee"], inv["vendor"]),
-            check(f"invoice {inv['id']} amount", bills[inv["id"]]["amount"], inv["amount"]),
-            check(f"invoice {inv['id']} days_until_due", bills[inv["id"]]["days_until_due"],
-                  (date.fromisoformat(inv["due_date"]) - today).days),
-            check(f"lease {lease['id']} payee", bills[f"lease-{lease['id']}"]["payee"], lease["landlord"]),
-            check(f"lease {lease['id']} rent", bills[f"lease-{lease['id']}"]["amount"], lease["monthly_rent"]),
-            check(f"lease {lease['id']} days_until_due", bills[f"lease-{lease['id']}"]["days_until_due"],
-                  (date.fromisoformat(lease["next_due"]) - today).days),
-            check("cash_after_all_bills", out["cash_after_all_bills"], round(cash - owed, 2)),
-        ]
+        checks = [check("shop_date", out["shop_date"], today.isoformat()),
+                  check("cash_total", out["cash_total"], cash),
+                  check("number of bills", len(out["bills"]), len(rows["invoices"]) + len(rows["leases"]))]
+        for inv in rows["invoices"]:  # every open invoice, however many there are
+            checks += [
+                check(f"invoice {inv['id']} payee", bills[inv["id"]]["payee"], inv["vendor"]),
+                check(f"invoice {inv['id']} amount", bills[inv["id"]]["amount"], inv["amount"]),
+                check(f"invoice {inv['id']} days_until_due", bills[inv["id"]]["days_until_due"],
+                      (date.fromisoformat(inv["due_date"]) - today).days),
+            ]
+        for lease in rows["leases"]:
+            key = f"lease-{lease['id']}"
+            checks += [
+                check(f"lease {lease['id']} payee", bills[key]["payee"], lease["landlord"]),
+                check(f"lease {lease['id']} rent", bills[key]["amount"], lease["monthly_rent"]),
+                check(f"lease {lease['id']} days_until_due", bills[key]["days_until_due"],
+                      (date.fromisoformat(lease["next_due"]) - today).days),
+            ]
+        checks.append(check("cash_after_all_bills", out["cash_after_all_bills"], round(cash - owed, 2)))
+        return [{"sql": q, "params": [], "rows": rows[k]} for k, q in queries.items()], checks
 
     raise ValueError(f"No verifier for {test['tool']}")
 
@@ -150,8 +156,10 @@ async def main() -> None:
     for r in results:
         print(f"[{'PASS' if r['pass'] else 'FAIL'}] ticket {r['ticket']} {r['tool']}: "
               f"{sum(c['match'] for c in r['db_checks'])}/{len(r['db_checks'])} fields match the database")
-    print(f"Wrote {OUT.relative_to(ROOT)}")
+    print(f"Wrote {OUT}")
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--out":  # e.g. write somewhere else to keep the saved evidence
+        OUT = Path(sys.argv[2]).resolve()
     asyncio.run(main())

@@ -233,6 +233,22 @@ def check_stock(sku: str, size: str, qty_needed: int) -> dict:
 
 
 @mcp.tool
+def list_inventory(sku: str | None = None) -> dict:
+    """List every size of one SKU (or the whole shelf if sku is omitted) with quantity, location,
+    and whether it is out of stock. Use it to see all sizes before suggesting an alternative. Reads inventory."""
+    with _db() as conn:
+        if sku is None:
+            items = _all(conn, "SELECT * FROM inventory ORDER BY sku, size")
+        else:
+            items = _all(conn, "SELECT * FROM inventory WHERE sku = ? ORDER BY size", (sku,))
+            if not items:
+                raise ToolError(f"SKU {sku} is not in inventory")
+    for item in items:
+        item["out_of_stock"] = item["qty"] == 0
+    return {"sku": sku, "items": items, "total_units": sum(i["qty"] for i in items)}
+
+
+@mcp.tool
 def quote_price_margin(sku: str, qty: int, discount_pct: float = 0.0) -> dict:
     """Price a quantity of a SKU at list price minus an optional discount, and show the
     resulting margin. Reads the pricing table. discount_pct is 0-100 (e.g. 15 = 15% off)."""
@@ -312,6 +328,40 @@ def get_bills_and_cash() -> dict:
         "shop_date": today.isoformat(), "cash_accounts": accounts, "cash_total": cash_total,
         "bills": bills, "bills_total": bills_total, "cash_after_all_bills": round(cash_total - bills_total, 2),
     }
+
+
+@mcp.tool
+def get_lease(lease_id: int) -> dict:
+    """Return one lease (space, landlord, monthly rent, next due date, days until due) and every rent
+    payment recorded against it. Reads leases, payments, desk."""
+    with _db() as conn:
+        lease = _one(conn, "SELECT * FROM leases WHERE id = ?", (lease_id,))
+        if lease is None:
+            raise ToolError(f"No lease {lease_id}")
+        today = _today(conn)
+        lease["days_until_due"] = _days_until(lease["next_due"], today)
+        lease["overdue"] = lease["days_until_due"] < 0
+        payments = _all(conn, "SELECT * FROM payments WHERE kind = 'rent' AND ref_id = ? ORDER BY id", (lease_id,))
+        return {"shop_date": today.isoformat(), "lease": lease, "rent_payments": payments}
+
+
+@mcp.tool
+def list_payments() -> dict:
+    """List every payment the shop has made (each one was human-approved), with the total paid out.
+    Reads payments."""
+    with _db() as conn:
+        payments = _all(conn, "SELECT * FROM payments ORDER BY id")
+    return {"payments": payments, "total_paid": round(sum(p["amount"] for p in payments), 2)}
+
+
+@mcp.tool
+def list_approvals(status: Literal["pending", "approved", "rejected", "paid"] | None = None) -> list[dict]:
+    """List payment and purchase-order approval requests and the human's decisions, optionally by status.
+    Read-only: only a human can decide a request. Reads approvals."""
+    with _db() as conn:
+        ids = [r["id"] for r in _all(conn, "SELECT id FROM approvals" + (" WHERE status = ?" if status else "")
+                                     + " ORDER BY id", (status,) if status else ())]
+        return [_approval(conn, i) for i in ids]
 
 
 @mcp.tool
@@ -504,15 +554,6 @@ def list_drafts(ticket_id: int | None = None) -> list[dict]:
 # =====================================================================================
 # Human-only tools. Hidden from every agent; used by the human approval step.
 # =====================================================================================
-
-@mcp.tool
-def admin_list_approvals(status: str | None = None) -> list[dict]:
-    """[human only] List approval requests, optionally by status."""
-    with _db() as conn:
-        ids = [r["id"] for r in _all(conn, "SELECT id FROM approvals" + (" WHERE status = ?" if status else "")
-                                     + " ORDER BY id", (status,) if status else ())]
-        return [_approval(conn, i) for i in ids]
-
 
 @mcp.tool
 def admin_decide_approval(approval_id: int, approved: bool, decided_by: str, note: str = "") -> dict:

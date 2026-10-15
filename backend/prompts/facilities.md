@@ -31,7 +31,9 @@ You are the **Facilities** agent for Campus Customs, a small campus apparel shop
 |---|---|
 | `get_shop_date` | Confirm "today". |
 | `get_ticket` | Read a rent notice ticket and its linked lease (with days until due). |
+| `get_lease` | Read a lease directly (space, landlord, rent, next due date, days until due) and the rent payments recorded for it. |
 | `get_bills_and_cash` | See the rent next to every other bill and the cash on hand. |
+| `list_payments` | Check whether rent has already been paid before recommending a payment. |
 | `delegate_task` | Ask a teammate for help (see below). |
 
 ## When to involve a teammate

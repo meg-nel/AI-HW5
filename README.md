@@ -10,7 +10,7 @@ backend/ agent team (PydanticAI, gpt-6-luna)  ──MCP over stdio──▶  mcp
 
 | Path | What it is |
 |---|---|
-| `mcp_server/` | `campus-customs` MCP server (FastMCP) with 17 tools. See [mcp_server/README.md](mcp_server/README.md). |
+| `mcp_server/` | `campus-customs` MCP server (FastMCP) with 20 tools. See [mcp_server/README.md](mcp_server/README.md). |
 | `backend/agents.py` | Builds the five agents, their tool access, full-mesh delegation, and the human approval gate. |
 | `backend/models.py` | Data types: approval requests and decisions, run context, agent reports. |
 | `backend/prompts/` | One prompt file per agent, with that agent's scope and shop rules. |
@@ -41,7 +41,8 @@ Open `.env` and paste your Portkey key after `OPENAI_API_KEY=`. `.env` is gitign
 1. The database is reset to the original values first (`--no-reset` skips this).
 2. You'll be asked for your name. It's recorded as the approver on any payment.
 3. Each time an agent asks to pay a bill or place a purchase order, the run pauses and asks you to approve or reject.
-4. The Boss's report, every delegation and tool call, and the changed tables are saved to `output/run_report.json`.
+4. The Boss's report, every delegation and tool call, and the changed tables are saved to `output/run_report.json` (this run only).
+5. Every agent-loop step is appended to `output/audit_trail.json`, which keeps every run.
 
 ## Tests (no API key, no cost)
 ```bash

@@ -16,10 +16,14 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TMP_DB = Path(tempfile.mkdtemp()) / "campus_customs_team_test.db"
+TMP_DIR = Path(tempfile.mkdtemp())
+TMP_DB = TMP_DIR / "campus_customs_team_test.db"
+TMP_AUDIT = TMP_DIR / "audit_trail.json"
 os.environ["CAMPUS_CUSTOMS_DB"] = str(TMP_DB)  # passed through to the MCP server process
+os.environ["CAMPUS_CUSTOMS_AUDIT"] = str(TMP_AUDIT)  # keep test runs out of output/audit_trail.json
 sys.path.insert(0, str(ROOT))
 
+from pydantic_ai import UsageLimitExceeded, UsageLimits  # noqa: E402
 from pydantic_ai.messages import ModelResponse, RetryPromptPart, ToolCallPart, ToolReturnPart  # noqa: E402
 from pydantic_ai.models.function import AgentInfo, FunctionModel  # noqa: E402
 
@@ -108,7 +112,11 @@ def accounting_model(pay_even_if_rejected: bool):
     return FunctionModel(fn)
 
 
-async def run_scenario(approve: bool, pay_even_if_rejected: bool = False) -> list[dict]:
+def audit() -> list[dict]:
+    return json.loads(TMP_AUDIT.read_text(encoding="utf-8")) if TMP_AUDIT.exists() else []
+
+
+async def run_scenario(approve: bool, pay_even_if_rejected: bool = False, limits=None) -> list[dict]:
     fresh_db()
     team = CampusCustomsTeam()
     events: list[dict] = []
@@ -120,7 +128,7 @@ async def run_scenario(approve: bool, pay_even_if_rejected: bool = False) -> lis
 
     with team.agents["boss"].override(model=boss_model()), \
          team.agents["accounting"].override(model=accounting_model(pay_even_if_rejected)):
-        await team.run("Work ticket 101.", approver, on_event=events.append)
+        await team.run("Work ticket 101.", approver, on_event=events.append, usage_limits=limits)
     ok(len(asked) == 1 and asked[0].amount == 840.0 and asked[0].kind == "invoice_payment",
        "the human was asked once, for $840 on invoice 501")
     return events
@@ -154,6 +162,40 @@ async def main() -> None:
     ok(sql("SELECT balance FROM cash_accounts")[0][0] == 3400.0 and
        sql("SELECT status FROM invoices WHERE id = 501")[0][0] == "open", "cash and invoice unchanged")
     ok(sql("SELECT status, decided_by FROM approvals") == [("rejected", "Test Human")], "rejection recorded")
+
+    print("Audit trail")
+    entries = audit()
+    runs = list(dict.fromkeys(e["run_id"] for e in entries))
+    ok(len(runs) == 2, "both runs are in the audit file (second run appended, first not wiped)")
+    first = [e for e in entries if e["run_id"] == runs[0]]
+    ok(first[0]["type"] == "run_start" and first[-1]["type"] == "run_end" and first[-1]["status"] == "completed",
+       "each run starts with run_start and ends with run_end")
+    ok(first[0]["model"] == "openai-responses:gpt-6-luna" and first[0]["limits"]["total_tokens_limit"] == 400_000
+       and len(first[0]["prompt_files"]) == 5, "run_start records model, limits, and prompt file hashes")
+    nodes = {(e["agent"], e["node"]) for e in first if e["type"] == "loop_step"}
+    ok({("boss", "user_prompt"), ("boss", "model_request"), ("boss", "model_response"), ("boss", "end"),
+        ("accounting", "model_response"), ("accounting", "end")} <= nodes,
+       "every loop step is recorded for both the boss and the delegated agent")
+    calls = [p for e in first if e["type"] == "loop_step" and e["node"] == "model_response" for p in e["parts"]
+             if p["kind"] == "tool-call"]
+    ok(any(p["tool"] == "pay_bill" for p in calls) and all("usage" in e for e in first if e.get("node") == "model_response"),
+       "model responses record tool calls with arguments and token usage")
+    ok({"tool_call", "tool_result", "delegation", "delegation_result", "approval_requested", "approval_decided"}
+       <= {e["type"] for e in first}, "tool calls, results, delegations, and approvals are all audited")
+    ok([e["seq"] for e in first] == list(range(1, len(first) + 1)), "entries are numbered in order within a run")
+
+    print("Token limits")
+    before = len(audit())
+    try:
+        await run_scenario(approve=True, limits=UsageLimits(request_limit=1))
+        stopped = False
+    except UsageLimitExceeded:
+        stopped = True
+    ok(stopped, "a run that exceeds its request limit is stopped")
+    tail = audit()[before:]
+    ok(tail[-1]["type"] == "run_end" and tail[-1]["status"] == "error" and "UsageLimitExceeded" in tail[-1]["error"],
+       "the stopped run is audited with run_end status=error")
+    ok(len(audit()) > before and len({e['run_id'] for e in audit()}) == 3, "audit file now holds all three runs")
 
     print(f"\nAll {passed} team wiring checks passed.")
 

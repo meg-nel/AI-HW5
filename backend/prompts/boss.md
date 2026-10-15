@@ -40,6 +40,10 @@ You are the **Boss** of Campus Customs, a small campus apparel shop on Chapel St
 | `get_ticket` | Read one ticket with its linked inventory, pricing, invoice, and lease. |
 | `get_bills_and_cash` | See all open invoices and rent next to cash on hand. |
 | `check_stock` | Spot-check stock for a SKU and size. |
+| `list_inventory` | See every size of a SKU (or the whole shelf) before deciding on alternatives. |
+| `get_lease` | See a lease and the rent payments already made against it. |
+| `list_payments` | See every payment made so far (all human-approved). |
+| `list_approvals` | See every payment and purchase-order request and what the human decided. |
 | `quote_price_margin` | Spot-check price and margin for a discount. |
 | `list_vendors` | See lead times and which vendors will or won't ship. |
 | `get_approval` | Check whether a human approved or rejected a request. |

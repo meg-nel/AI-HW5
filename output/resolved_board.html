@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Customs — Resolved Tickets on the Board</title>
+<style>
+  :root { --ink:#3e2a20; --muted:#8a6d5c; --card:#fffaf4; --line:#efdcca; --accent:#b4532e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 "Segoe UI",system-ui,sans-serif; color:var(--ink); background:#f6ece9; }
+  .hero { background:linear-gradient(180deg,#8f5a7a,#e9a98e); color:#fff8f2; padding:34px 40px 30px; }
+  .hero h1 { margin:0; font-size:28px; } .hero p { margin:6px 0 0; color:#fbe6dc; }
+  .totals { display:flex; gap:14px; flex-wrap:wrap; margin-top:18px; }
+  .totals div { background:rgba(255,250,244,.9); color:var(--ink); border-radius:14px; padding:10px 18px; }
+  .totals b { display:block; font-size:22px; }
+  nav { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+  nav a { color:#fff; background:rgba(255,255,255,.18); padding:6px 14px; border-radius:999px; text-decoration:none; font-weight:600; }
+  main { max-width:1180px; margin:0 auto; padding:28px 40px 60px; display:grid; gap:28px; }
+  .ticket { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:24px 28px; box-shadow:0 6px 22px rgba(120,60,30,.08); }
+  .ticket header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+  .tid { color:var(--accent); font-weight:700; } h2 { margin:2px 0; font-size:24px; } h3 { font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); margin:14px 0 6px; }
+  header p { margin:0; color:var(--muted); font-size:14px; text-transform:capitalize; }
+  .stamp { font-weight:800; letter-spacing:.14em; color:#a2462c; border:3px solid #d98a6c; border-radius:10px; padding:6px 14px; transform:rotate(-4deg); background:#fff1e8; }
+  .outcome { background:#fbe4d8; border-left:5px solid var(--accent); border-radius:0 12px 12px 0; padding:12px 16px; margin:14px 0 4px; }
+  .grid { display:grid; grid-template-columns:1fr 1.4fr; gap:24px; }
+  ul { margin:0; padding-left:20px; } li { margin:4px 0; font-size:14.5px; }
+  .cash { font-size:18px; margin:0; } .neg { color:#a5483a; font-weight:700; margin-left:8px; } .zero { color:var(--muted); margin-left:8px; }
+  code { font-family:Consolas,monospace; font-size:.85em; background:#f5e6d6; padding:1px 6px; border-radius:5px; text-transform:none; }
+  figure { margin:20px 0 0; } figure img { width:100%; border-radius:12px; border:1px solid var(--line); }
+  figcaption { color:var(--muted); font-size:13.5px; margin-top:6px; }
+  @media (max-width:820px) { .grid { grid-template-columns:1fr; } main, .hero { padding-left:18px; padding-right:18px; } }
+</style></head>
+<body>
+<div class="hero">
+  <h1>Campus Customs — Resolved Tickets on the Board</h1>
+  <p>Problem 9 · shop date 2026-08-31 · five agents on gpt-6-luna · human approver: Meg</p>
+  <div class="totals">
+    <div>Checking after reset<b>$3,400.00</b></div>
+    <div>Paid out<b>$3,240.00</b></div>
+    <div>Checking now (cash_accounts)<b>$160.00</b></div>
+    <div>Tickets resolved<b>3 of 3</b></div>
+  </div>
+  <nav><a href="#t101">#101 Bulldog tee</a><a href="#t102">#102 Rent due</a><a href="#t103">#103 Bulk hoodie discount</a></nav>
+</div>
+<main>
+<section class="ticket" id="t101">
+  <header>
+    <div><span class="tid">#101</span><h2>Bulldog tee</h2>
+      <p>Tauhid Zaman · customer order · run <code>20261015T032309Z-t101-a604</code></p></div>
+    <span class="stamp">RESOLVED</span>
+  </header>
+  <p class="outcome">Human approved payment of invoice 501 and the restock PO for 1 × CC-TEE-WHITE size S. The expected vendor arrival is 2026-09-05; this is not a guaranteed customer delivery or pickup date.</p>
+  <div class="grid">
+    <div><h3>Cash</h3><p class="cash">$3,400.00 → <b>$2,560.00</b>
+      <span class="neg">−$840.00</span></p>
+      <h3>Human approvals</h3><ul><li><b>#1 invoice payment $840.00</b> — approved by Meg · paid (checking $3,400.00 → $2,560.00)</li><li><b>#2 purchase order $8.00</b> — approved by Meg · no cash moved (checking $2,560.00 → $2,560.00)</li></ul></div>
+    <div><h3>What each agent did</h3><ul><li><b>Boss:</b> Paid invoice 501 to Bulldog Print Co first: $840, 3 days overdue, and required to unblock the tee restock. Human approved and payment 1 was made; cash is $2,560. The $2,400 rent due 2026-09-02 was not paid or requested under this ticket-only run; $160 remains after that bill.</li><li><b>Inventory:</b> Ticket 101 requires one Classic Bulldog Tee in size S, but there is no stock on hand to fulfill it. The matching apparel-reprint vendor is blocked from shipping by the ticket’s open overdue invoice; no order was placed.</li><li><b>Accounting:</b> For ticket 101, invoice 501 was human-approved and paid first, reducing checking cash from $3,400 to $2,560. Once Bulldog Print Co was unblocked, I requested the 1 × CC-TEE-WHITE size S purchase order; its $8 request was approved, with no cash moved today.</li><li><b>Customer Service:</b> Saved a single current draft for Tauhid Zaman about the Bulldog Tee order; it is not sent. The draft states the item is currently unavailable and gives September 5, 2026 only as the expected restock arrival, not a guaranteed delivery or pickup date.</li></ul></div>
+  </div>
+  <figure>
+    <a href="resolved_board/ticket_101.png" target="_blank"><img src="resolved_board/ticket_101.png"
+      alt="React board after ticket 101 was resolved" loading="lazy"></a>
+    <figcaption>The React board (http://localhost:5173) right after ticket 101 resolved. Click to open full size.</figcaption>
+  </figure>
+</section>
+<section class="ticket" id="t102">
+  <header>
+    <div><span class="tid">#102</span><h2>Rent due</h2>
+      <p>Elm City Properties · rent notice · run <code>20261015T032513Z-t102-9c6b</code></p></div>
+    <span class="stamp">RESOLVED</span>
+  </header>
+  <p class="outcome">Rent of $2,400 was paid with human approval ahead of the due date. Customer Service drafted a confirmation for Elm City Properties; it was not sent.</p>
+  <div class="grid">
+    <div><h3>Cash</h3><p class="cash">$2,560.00 → <b>$160.00</b>
+      <span class="neg">−$2,400.00</span></p>
+      <h3>Human approvals</h3><ul><li><b>#3 rent payment $2,400.00</b> — approved by Meg · paid (checking $2,560.00 → $160.00)</li></ul></div>
+    <div><h3>What each agent did</h3><ul><li><b>Boss:</b> Paid lease 1 rent to Elm City Properties first: $2,400, human approval request 3 approved and payment 2 completed on 2026-08-31, two days before its 2026-09-02 due date. This was the only bill considered for ticket 102; cash after payment is $160.</li><li><b>Accounting:</b> Requested human approval for lease 1 rent and it was approved and paid. Payment 2 is confirmed in the payment ledger; checking now has $160 remaining.</li><li><b>Facilities:</b> The rent notice matches lease 1 and is not overdue: rent of $2,400 is due in 2 days, on 2026-09-02. Cash covers the rent with $160 remaining; no late-payment consequence is documented in the lease record, so I cannot verify a penalty or other consequence.</li><li><b>Customer Service:</b> Saved a concise rent-payment confirmation as a draft for Elm City Properties. The draft is not sent.</li></ul></div>
+  </div>
+  <figure>
+    <a href="resolved_board/ticket_102.png" target="_blank"><img src="resolved_board/ticket_102.png"
+      alt="React board after ticket 102 was resolved" loading="lazy"></a>
+    <figcaption>The React board (http://localhost:5173) right after ticket 102 resolved. Click to open full size.</figcaption>
+  </figure>
+</section>
+<section class="ticket" id="t103">
+  <header>
+    <div><span class="tid">#103</span><h2>Bulk hoodie discount</h2>
+      <p>Yale AI Club · price override · run <code>20261015T032651Z-t103-6b3c</code></p></div>
+    <span class="stamp">RESOLVED</span>
+  </header>
+  <p class="outcome">Approved 15% off for 20 hoodies: $49.30 each, $986.00 total. Eight are in stock; the approved 12-unit restock is expected 2026-09-05, not guaranteed.</p>
+  <div class="grid">
+    <div><h3>Cash</h3><p class="cash">$160.00 → <b>$160.00</b>
+      <span class="zero">no change</span></p>
+      <h3>Human approvals</h3><ul><li><b>#4 purchase order $264.00</b> — approved by Meg · no cash moved (checking $160.00 → $160.00)</li></ul></div>
+    <div><h3>What each agent did</h3><ul><li><b>Boss:</b> No bill payments were requested for ticket 103. The only action in the money plan was PO approval 4 for 12 CC-HOOD-NAVY size M from Bulldog Print Co, $264.00 future invoice cost; Meg approved it on 2026-08-31. It does not spend cash today. Rent of $2,400 for lease 1 is due 2026-10-02 (32 days away) and was not part of this ticket&#x27;s plan; cash is $160.00.</li><li><b>Inventory:</b> Ticket 103 requests 20 CC-HOOD-NAVY hoodies in size M; stock is short by 12. Bulldog Print Co is the suitable apparel-reprint vendor, has no open unpaid invoices, and could arrive September 5, 2026 if ordered today; no order was placed.</li><li><b>Accounting:</b> Requested approval for the listed 12-unit restock PO from Bulldog Print Co; approval ID 4 was approved by Meg and the purchase order is recorded. No cash was spent, and the approved order is expected to arrive September 5, 2026.</li><li><b>Customer Service:</b> Saved one current draft reply for Yale AI Club, reflecting the approved hoodie discount and the verified on-hand quantity and restock expectation. The draft is not sent.</li></ul></div>
+  </div>
+  <figure>
+    <a href="resolved_board/ticket_103.png" target="_blank"><img src="resolved_board/ticket_103.png"
+      alt="React board after ticket 103 was resolved" loading="lazy"></a>
+    <figcaption>The React board (http://localhost:5173) right after ticket 103 resolved. Click to open full size.</figcaption>
+  </figure>
+</section></main>
+</body></html>

@@ -199,6 +199,17 @@ async def main() -> None:
        <= {e["type"] for e in first}, "tool calls, results, delegations, and approvals are all audited")
     ok([e["seq"] for e in first] == list(range(1, len(first) + 1)), "entries are numbered in order within a run")
 
+    print("Two writers on one audit file never drop each other's entries")
+    from backend.audit import AuditTrail, read_entries
+    shared = TMP_DIR / "shared_audit.json"
+    run_writer, board_writer = AuditTrail(shared), AuditTrail(shared)  # like a run and the board's human actions
+    for i in range(5):
+        run_writer.append({"run_id": "r1", "type": "loop_step", "i": i})
+        board_writer.append({"run_id": "board", "type": "human_approved", "i": i})
+    got = read_entries(shared)
+    ok(len(got) == 10 and [e["seq"] for e in got if e["run_id"] == "r1"] == [1, 2, 3, 4, 5],
+       "interleaved writers keep all 10 entries, numbered in order per run")
+
     print("Token limits")
     before = len(audit())
     try:

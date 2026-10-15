@@ -246,3 +246,25 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problems 7 and 8 to AI-HW5.
 
 *What was lacking:* Neither the Problem 7 nor the Problem 8 prompt said to save the backend routes and the dashboard to GitHub.
+
+---
+
+## Problem 9: Resolve the Tickets
+
+### Initial prompt
+
+> Thx. Problem 9: Resolve the Tickets. Reset the working database data/campus_customs_new.db so we can start clean. Note the checking balance and then run all three tickets on the board (101, 102, 103) until each is resolved. Open output.desk_tickets.html and on each ticket tab, fill the Actual section from this run - which agents worked, what they delegated, and which tools they used. Keep the Expected section and compare the two. On the Cash tab of output/desk_tickets.html, itemize the money: starting checking balance after the reset, for each ticket how the cash changed when the ticket resolved and why, and ending checking balance (must match cash_accounts). Save output/resolved_tickets.json for each ticket (id, final status, short outcome, what each agent contributed, and any human approvals) and output/resolved_board.html (page you can double click with a screenshot of the React board for each resolved ticket). Append real runs to output/audit_trail.json and finish output/harness.md so it covers tables, MCP tools, the five agents, API routes, the dashboard, and safety rules
+
+### Follow-up prompts
+
+**Follow-up 1** (answer to "who should click approve or reject?")
+
+> You approve as Meg
+
+*What was lacking:* The first prompt asked for every ticket to be resolved but didn't say who makes the human approval decisions on the real payments and orders the runs would pause for.
+
+**Follow-up 2**
+
+> Commit and push Problem 9 to AI-HW5.
+
+*What was lacking:* The Problem 9 prompt didn't say to save the resolved-ticket results, pages and fixes to GitHub.

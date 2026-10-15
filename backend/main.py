@@ -47,7 +47,7 @@ from fastmcp import Client  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from backend.agents import MODEL, CampusCustomsTeam  # noqa: E402  (importing backend loads .env)
-from backend.audit import AuditTrail  # noqa: E402
+from backend.audit import AuditTrail, read_entries  # noqa: E402
 from backend.models import ApprovalDecision, ApprovalRequest  # noqa: E402
 from mcp_server.server import mcp as shop_mcp  # noqa: E402
 from reset_db import reset_database  # noqa: E402
@@ -234,8 +234,7 @@ async def current_run():
 
 
 def _read_audit() -> list[dict]:
-    path = AuditTrail().path
-    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    return read_entries()  # same lock as the writers, with retries for Windows file sharing
 
 
 @app.get("/runs/{run_id}/summary", summary="Short summary of what each agent did in a run")

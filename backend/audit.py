@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -42,18 +43,54 @@ def clip(value: Any) -> Any:
     return value
 
 
+# One lock per audit file for the whole process, shared by every AuditTrail object and reader,
+# so a run's writer, the board's human-action writer, and GET /events never step on each other.
+_LOCKS: dict[str, threading.RLock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(path: Path) -> threading.RLock:
+    key = str(path.resolve()).lower()
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(key, threading.RLock())
+
+
+def _retry(action, attempts: int = 40, delay: float = 0.05):
+    """Windows briefly refuses to replace or read a file someone else has open (another reader,
+    OneDrive, antivirus). Retry for up to ~2 seconds before giving up."""
+    for i in range(attempts):
+        try:
+            return action()
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(delay)
+
+
+def default_audit_path() -> Path:
+    return Path(os.environ.get("CAMPUS_CUSTOMS_AUDIT") or DEFAULT_AUDIT_PATH)
+
+
+def read_entries(path: Path | str | None = None) -> list[dict]:
+    """Read the audit file safely (same lock as the writers)."""
+    p = Path(path) if path else default_audit_path()
+    with _lock_for(p):
+        if not p.exists() or p.stat().st_size == 0:
+            return []
+        data = json.loads(_retry(lambda: p.read_text(encoding="utf-8")))
+        return data if isinstance(data, list) else []
+
+
 class AuditTrail:
     def __init__(self, path: Path | str | None = None):
-        self.path = Path(path or os.environ.get("CAMPUS_CUSTOMS_AUDIT") or DEFAULT_AUDIT_PATH)
-        self._lock = threading.Lock()
-        self._entries = self._load()
-        self._seq: dict[str, int] = {}
+        self.path = Path(path) if path else default_audit_path()
+        self._lock = _lock_for(self.path)
 
     def _load(self) -> list[dict]:
         if not self.path.exists() or self.path.stat().st_size == 0:
             return []
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(_retry(lambda: self.path.read_text(encoding="utf-8")))
             if isinstance(data, list):
                 return data
         except json.JSONDecodeError:
@@ -64,17 +101,19 @@ class AuditTrail:
         return []
 
     def append(self, entry: dict[str, Any]) -> dict[str, Any]:
+        """Read the current file, add one entry, write it back atomically. Never drops earlier entries."""
         with self._lock:
+            entries = self._load()
             run_id = entry.get("run_id", "")
-            self._seq[run_id] = self._seq.get(run_id, 0) + 1
-            record = {"run_id": run_id, "seq": self._seq[run_id],
+            seq = 1 + max((e.get("seq", 0) for e in entries if e.get("run_id") == run_id), default=0)
+            record = {"run_id": run_id, "seq": seq,
                       "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                       **clip({k: v for k, v in entry.items() if k != "run_id"})}
-            self._entries.append(record)
+            entries.append(record)
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".json.tmp")
-            tmp.write_text(json.dumps(self._entries, indent=1, default=str) + "\n", encoding="utf-8")
-            os.replace(tmp, self.path)
+            _retry(lambda: tmp.write_text(json.dumps(entries, indent=1, default=str) + "\n", encoding="utf-8"))
+            _retry(lambda: os.replace(tmp, self.path))
             return record
 
 

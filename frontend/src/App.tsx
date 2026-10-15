@@ -13,16 +13,22 @@ import type { Approval, BoardEvent, Cash, RunState, RunSummary as Summary, Ticke
 
 const RUNS_KEY = "runIdByTicket";
 
+// A link like /?ticket=101&run=<run_id> opens that ticket and shows that run (used for shareable views).
+const params = new URLSearchParams(window.location.search);
+const LINK_TICKET = params.get("ticket") ? Number(params.get("ticket")) : null;
+const LINK_RUN = params.get("run");
+
 export default function App() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [shopDate, setShopDate] = useState<string | null>(null);
   const [cash, setCash] = useState<Cash | null>(null);
   const [run, setRun] = useState<RunState | null>(null);
   const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [runIdByTicket, setRunIdByTicket] = useState<Record<number, string>>(
-    () => JSON.parse(localStorage.getItem(RUNS_KEY) ?? "{}"),
-  );
+  const [selected, setSelected] = useState<number | null>(LINK_TICKET);
+  const [runIdByTicket, setRunIdByTicket] = useState<Record<number, string>>(() => {
+    const saved: Record<number, string> = JSON.parse(localStorage.getItem(RUNS_KEY) ?? "{}");
+    return LINK_TICKET !== null && LINK_RUN ? { ...saved, [LINK_TICKET]: LINK_RUN } : saved;
+  });
   const [events, setEvents] = useState<BoardEvent[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [offline, setOffline] = useState<string | null>(null);

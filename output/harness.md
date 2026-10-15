@@ -1,9 +1,30 @@
 # Campus Customs Agent Harness
 
-Working reference for the Campus Customs multi-agent team. This file grows as we build.
+The reference for the Campus Customs multi-agent team, built up over Problems 2–9.
 
-- **Database:** `data/campus_customs_new.db` (SQLite). This is the working copy the agents will read and update.
-- **Shop date:** 2026-08-31 (from `desk.date_today`). Agents should use this date, not the real clock.
+- **Database:** `data/campus_customs_new.db` (SQLite). This is the working copy the agents read and update. `data/campus_customs_original.db` is the untouched copy used for resets.
+- **Shop date:** 2026-08-31 (from `desk.date_today`). Agents use this date, not the real clock.
+
+## At a glance
+
+```
+React board (frontend/, :5173) ──HTTP──▶ FastAPI (backend/main.py, :8000) ──▶ 5 PydanticAI agents on gpt-6-luna (via Portkey)
+   you pick a ticket, watch, approve        approve route = the only place cash moves     any agent can delegate to any other
+                                                                                             │ MCP (stdio)
+                                                                                             ▼
+                                                      campus-customs MCP server (FastMCP, 21 tools) ──▶ data/campus_customs_new.db
+                                                      shop rules enforced here                   every step → output/audit_trail.json
+```
+
+| Topic | Where in this file |
+|---|---|
+| **Tables** (fields and why each matters) | [Tables](#tables), [How the three open tickets link](#how-the-three-open-tickets-link-to-other-tables) |
+| **MCP tools** (all 21, with the tables each reads and writes) | [MCP tools and the tables they use](#mcp-tools-and-the-tables-they-use-21-tools). Earlier detail: [Problem 3 tools](#mcp-tools-problem-3-the-first-three), [Problem 5 tools](#new-mcp-tools-problem-5) |
+| **The five agents** (jobs, tools, delegation, prompts) | [Agents](#agents), [Agent team (PydanticAI)](#agent-team-pydanticai) |
+| **API routes** | [Backend routes](#backend-routes-problem-7-backendmainpy) |
+| **Dashboard** | [Agent dashboard](#agent-dashboard-problem-8-frontend), plus `output/design.md` |
+| **Safety rules** | [Shop rules and where they're enforced](#shop-rules-and-where-theyre-enforced), [Safety](#safety), [Audit trail](#audit-trail-outputaudit_trailjson) |
+| **Results** | [Full run #1](#full-run-1-2026-10-14-gpt-6-luna-through-portkey), [Full run #2](#full-run-2-2026-10-14-gpt-6-luna-through-portkey), [Problem 9: resolved on the board](#problem-9-resolving-the-three-tickets-on-the-board) |
 
 ## Agent team
 
@@ -271,8 +292,8 @@ Moved to **Agents and MCP tools (current)** at the end of this file, which also 
 | `desk.date_today` is "today" and decides what's overdue | All five prompts | Every date calculation in the server uses `desk.date_today`, never the computer clock. |
 | Lead times come from `vendors.lead_days` | Inventory, Accounting, Customer Service, Boss | `list_vendors` and `request_purchase_order` compute arrival = shop date + `lead_days`. |
 | A vendor won't ship with an open unpaid invoice | Inventory, Accounting, Customer Service, Boss | `request_purchase_order` refuses; `list_vendors` shows `will_ship: false`. |
-| Human approval for every payment | All five prompts | `request_payment` → the run pauses and asks the human → `admin_decide_approval` records it → `pay_bill` only accepts an approved, unused request. The admin tools are hidden from agents. |
-| Paying updates the tables | Accounting | `pay_bill` writes `payments` (with the approver's name), `cash_accounts`, and `invoices` / `leases` in one transaction. |
+| Human approval for every payment | All five prompts | `request_payment` → the run pauses for the human → `admin_decide_approval` records it → `pay_bill` only accepts an approved, unused request. Since Problem 7, no agent has `pay_bill`: the human approval step calls it (the board's approve route, or the terminal prompt). The admin tools are hidden from agents. |
+| Paying updates the tables | Accounting (reports it) | `pay_bill` writes `payments` (with the approver's name), `cash_accounts`, and `invoices` / `leases` in one transaction. |
 | Refuse if cash is short; no negative balances | Accounting, Boss, Facilities | `pay_bill` checks the balance first, and a database trigger blocks any negative balance. |
 | Cash only goes out | Accounting, Boss, Facilities | No tool adds money or records revenue. |
 | Never invent data | All five prompts | Amounts come from the database, not the agent. Unknown IDs, SKUs, and sizes return errors. |
@@ -495,6 +516,11 @@ Every agent also has `delegate_task`, so any agent can hand work to any other (f
 
 Long text is cut to 20,000 characters, with the original length noted. Secrets are never recorded: no environment variables or keys.
 
+**Write safety (fixed in Problem 9):**
+- **One lock, fresh reads.** All writers and readers in a process share one lock per audit file, and every append re-reads the file first. So a run's writer and the board's human-action writer can't overwrite each other's entries; before this fix, one could.
+- **Retries on Windows.** Writes and reads retry for up to about 2 seconds when Windows briefly holds the file, for example while the board is reading it or OneDrive is syncing.
+- **Tested:** `tests/test_team_wiring.py` checks two interleaved writers.
+
 ## Safety
 
 ### Guardrails a business would want
@@ -561,6 +587,67 @@ Start from the `backend/` folder: `uvicorn main:app --reload --port 8000` (with 
 - **Demo mode.** `CAMPUS_CUSTOMS_DEMO=1` swaps gpt-6-luna for scripted stand-in agents (`backend/demo.py`); everything else is real. It's for trying the board without model calls.
 
 ## Agent dashboard (Problem 8, `frontend/`)
-React + Vite + TypeScript, started with `npm run dev` in `frontend/` (http://localhost:5173). It calls the backend at `http://localhost:8000`, and refreshes every 1.2 s during a run and every 5 s otherwise. The design choices are in `output/design.md`.
+React + Vite + TypeScript, started with `npm run dev` in `frontend/` (http://localhost:5173). It calls the backend at `http://localhost:8000` (`frontend/src/config.ts`), and refreshes every 1.2 s during a run and every 5 s otherwise. The design choices and screenshots are in `output/design.md`.
+
+| Board part | Shows | Route(s) |
+|---|---|---|
+| Sky header | Phase of the run, from dawn to sunrise, midday, golden hour, sunset and dusk; the sun moves along its arc | `GET /runs/current`, `GET /events` |
+| Checking card | Live balance; a red "−$X" badge when an approved payment lands | `GET /cash` |
+| Ticket list | All three tickets with status pills and the open/resolved count; start a run on the selected ticket; "Fresh start" reset | `GET /tickets`, `POST /tickets/{id}/run`, `POST /reset` |
+| Ticket header | Subject, requester, progress steps, a RESOLVED stamp when done | `GET /tickets`, `GET /events` |
+| Approval card | The request the run is paused on: payee or order, due date, "checking after", Approve / Reject | `GET /approvals`, `POST /approvals/{id}/approve`, `.../reject` |
+| Agent cards | Each agent's color, monogram, status, latest line and current tool | `GET /events` |
+| On the desk | The conversation: what each agent said, hand-offs, tool chips, approvals and payments | `GET /events?run_id=&after=` |
+| What each agent did | A per-agent summary, actions, hand-offs and tool counts after the run | `GET /runs/{run_id}/summary` |
+
+A link like `/?ticket=101&run=<run_id>` opens a specific ticket's run. Those links were used for the per-ticket screenshots in `output/resolved_board.html`.
+
+## Problem 9: resolving the three tickets on the board
+
+- **Setup:** the database was reset with `POST /reset`; checking started at **$3,400.00**.
+- **How the tickets ran:** one at a time, through `POST /tickets/{id}/run` with gpt-6-luna.
+- **Approvals:** `scripts/drive_ticket.py` acted as the human. It approved every request as **Meg** through the approve route, as agreed, and saved each run's log to `output/runs/ticket_<id>.json`.
+
+| Ticket | Run | First call | Hand-offs | Human approvals | Cash | Status |
+|---|---|---|---|---|---|---|
+| 101 Bulldog tee | `20261015T032309Z-t101-a604` (23 model calls, 31 tool calls, ~95k tokens) | Inventory | Inventory → Accounting (numbers only) → Accounting (money plan) → Customer Service | #1 invoice 501 $840, **paid**; #2 PO 1 tee $8, no cash moved | $3,400 → $2,560 | resolved |
+| 102 Rent due | `20261015T032513Z-t102-9c6b` (19, 23, ~70k) | Facilities | Facilities → Accounting (numbers only) → Accounting (payment plan) → Customer Service | #3 rent $2,400, **paid** (lease next due 2026-10-02) | $2,560 → $160 | resolved |
+| 103 Hoodie discount | `20261015T032651Z-t103-6b3c` (18, 28, ~72k) | Accounting | Accounting (margins) → Inventory → Accounting (PO plan) → Customer Service | #4 PO 12 hoodies $264, $104 short of cash, approved; no cash moved | $160 → $160 | resolved (15% off) |
+
+- **Ending checking:** **$160.00**, matching `cash_accounts.checking`, which is $3,400 − $840 − $2,400.
+- **Database checks:** `scripts/check_run.py` passes 16 of 16 → `output/run_db_check.json`.
+- **Not yet paid:** $272 in approved purchase orders, which the vendor will invoice, and the $2,400 rent due 2026-10-02.
+
+### Expected vs. actual (full comparison on each ticket tab of `output/desk_tickets.html`)
+**Matched the plan:**
+- the first call on every ticket
+- all four hand-offs per ticket, in the planned order
+- every approval and its cash effect
+- one unsent draft per ticket, with the landlord note written as the payer
+
+**Differed from the plan:**
+- **Final status.** The plan expected `waiting_on_vendor` for 101 and 103; both ended `resolved`. The board prompt from Problem 8 tells the Boss to resolve once the desk's work is done and keep the delivery date in the note.
+- **Ticket 102's money plan** had only the rent, because ticket 101's run had already paid invoice 501.
+- **Small differences in tool use:**
+  - Accounting double-checked with `list_approvals` and `list_payments`, and repeated a few reads.
+  - Inventory didn't need `list_inventory`.
+  - Facilities read the lease through `get_ticket` instead of `get_lease`.
+- **Discount:** the Boss chose 15% again (run #1 had chosen 10%).
+
+### Problems found during Problem 9, and fixes
+- **Audit trail write failure.** The first attempt at ticket 101 stopped after its payment: Windows refused to replace `audit_trail.json` while the board was reading it. That attempt also exposed the overwrite bug between two audit writers. Both are fixed (see Audit trail).
+  - The database was reset again before the three clean runs.
+  - The failed attempt (`20261015T032001Z-t101-01d7`) stays in the append-only audit trail, but its board-side human entries were lost to the bug.
+- **Agent tool server timing out on start.** In demo runs (Problem 8), runs sometimes failed while the agents' MCP server was starting up. The MCP handshake timeout is now 60 s.
+
+### Problem 9 files
+| File | What it is |
+|---|---|
+| `output/desk_tickets.html` | Expected and Actual on each ticket tab with the comparison; the Cash tab itemizes the money |
+| `output/resolved_tickets.json` | Per ticket: id, final status, short outcome, what each agent contributed, human approvals, cash, draft |
+| `output/resolved_board.html` | A page you can double-click, with a screenshot of the React board for each resolved ticket (images in `output/resolved_board/`) |
+| `output/runs/ticket_101.json` … `ticket_103.json` | Raw per-run logs: approvals, events, summary, Boss report |
+| `output/audit_trail.json` | Every agent-loop step of the real runs, plus the board's human actions (4 approvals, 2 payments, 2 resets) |
+| `output/run_db_check.json` | The database checks after the runs |
 
 

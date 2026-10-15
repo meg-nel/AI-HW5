@@ -103,6 +103,18 @@
     [role="tabpanel"] { page-break-after: always; }
     .card { box-shadow: none; }
   }
+
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; margin-left: 4px; }
+  .badge.ok { background: var(--blue-100); color: var(--blue-700); }
+  .badge.diff { background: #fff1d6; color: #8a5208; }
+  .verdict { background: var(--blue-50); border-left: 5px solid var(--blue-500); padding: 10px 14px; border-radius: 0 10px 10px 0; margin: 0 0 8px; }
+  ol.steps { margin: 0; padding-left: 20px; } ol.steps li { margin: 3px 0; }
+  .actual .tool-list { margin: 3px 0; align-items: center; }
+  ul.diffs li { margin: 6px 0; }
+  .ledger td.num-col, .ledger th.num-col { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ledger td.neg { color: #a5483a; font-weight: 600; }
+  .ledger tr.start td, .ledger tr.end td { background: var(--blue-100) !important; font-weight: 600; }
+  .ledger tr.sub td { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -181,22 +193,14 @@
 
   <div class="card actual">
     <span class="section-label">Actual</span>
-    <h3>What the team did (fill in after the run)</h3>
+    <h3>What the team did — Problem 9 run on the board (approver: Meg)</h3>
     <table>
-      <thead><tr><th style="width:28%">Item</th><th>Observed in <code>output/audit_trail.json</code> / <code>run_report.json</code></th></tr></thead>
-      <tbody>
-        <tr><td>Run ID</td><td class="blank"></td></tr>
-        <tr><td>Boss called first</td><td class="blank"></td></tr>
-        <tr><td>Delegations (in order)</td><td class="blank"></td></tr>
-        <tr><td>MCP tools used</td><td class="blank"></td></tr>
-        <tr><td>Approvals and human decisions</td><td class="blank"></td></tr>
-        <tr><td>Final ticket status</td><td class="blank"></td></tr>
-        <tr><td>Draft to requester</td><td class="blank"></td></tr>
-        <tr><td>Matched expected?</td><td class="blank"></td></tr>
-      </tbody>
+      <thead><tr><th style="width:24%">Item</th><th>Observed in <code>output/audit_trail.json</code> and <code>output/runs/ticket_101.json</code></th></tr></thead>
+      <tbody><tr><td>Run</td><td><code>20261015T032309Z-t101-a604</code> · gpt-6-luna · 23 model calls · 31 tool calls · 95k tokens · 49 s</td></tr><tr><td>Boss called first</td><td><b>Inventory</b> <span class="badge ok">✓ as expected</span> — the Boss sent Inventory (stock + vendor facts) and a <em>numbers-only</em> brief to Accounting in the same step, Inventory first.</td></tr><tr><td>Agents that worked</td><td>Boss, Inventory, Accounting, Customer Service. Facilities was not called (nothing about the lease).</td></tr><tr><td>Delegations (in order)</td><td><ol class='steps'><li><b>Boss → Inventory</b>: 1 × CC-TEE-WHITE S; check stock, whether invoice 501 blocks the vendor, lead time. “Do not order.”</li><li><b>Boss → Accounting</b>: “numbers only — do not request any payment or purchase order yet”; invoice 501 and cash.</li><li><b>Boss → Accounting</b>: money plan in order — (1) pay invoice 501 ($840) to unblock the vendor, (2) then request a PO for 1 × CC-TEE-WHITE S.</li><li><b>Boss → Customer Service</b>: draft the reply to Tauhid Zaman with the final decision.</li></ol></td></tr><tr><td>MCP tools used</td><td><div class='tool-list'><b>Boss</b> <code>list_open_tickets</code><code>get_ticket(101)</code><code>get_bills_and_cash ×2</code><code>update_ticket(101, resolved)</code></div><div class='tool-list'><b>Inventory</b> <code>get_ticket(101)</code><code>check_stock(CC-TEE-WHITE, S, 1)</code><code>list_vendors</code></div><div class='tool-list'><b>Accounting</b> <code>get_bills_and_cash ×3</code><code>get_ticket ×2</code><code>list_vendors ×3</code><code>list_approvals ×2</code><code>request_payment(invoice, 501)</code><code>list_payments</code><code>request_purchase_order(1, CC-TEE-WHITE, S, 1)</code></div><div class='tool-list'><b>Customer Service</b> <code>get_ticket(101)</code><code>list_drafts(101)</code><code>check_stock</code><code>get_shop_date</code><code>list_vendors</code><code>draft_customer_message(101)</code></div><div class='tool-list'><b>Human (board)</b> <code>admin_decide_approval ×2</code><code>pay_bill(1)</code> via <code>POST /approvals/{id}/approve</code></div></td></tr><tr><td>Approvals and human decisions</td><td>#1 invoice 501, $840 — <b>approved by Meg → paid</b> (payment 1), checking $3,400 → $2,560.<br>#2 purchase order, 1 × CC-TEE-WHITE S, $8, arrives 2026-09-05 — <b>approved by Meg</b>, no cash moved.</td></tr><tr><td>Final ticket status</td><td><code>resolved</code> (note records the 2026-09-05 expected arrival)</td></tr><tr><td>Draft to requester</td><td>Draft 1 → Tauhid Zaman, “Your Classic Bulldog Tee (S) order”: size S is being restocked, expected September 5, 2026, not guaranteed. Not sent.</td></tr><tr><td>Matched expected?</td><td>Yes on first call, all four delegations, both approvals, cash and draft. Two differences below.</td></tr></tbody>
     </table>
-    <h4>Differences and notes</h4>
-    <div class="fill">To be filled after running the agents.</div>
+    <h4>Expected vs. actual</h4>
+    <p class="verdict">Close match: same first call, same four hand-offs in the same order, same approvals and cash effect.</p>
+    <ul class="diffs"><li><b>Final status:</b> expected <code>waiting_on_vendor</code>; actual <code>resolved</code>. The board run prompt (added in Problem 8) asks the Boss to resolve once the desk's work is done and keep the delivery date in the note.</li><li><b>Extra tool use:</b> the Boss didn't call <code>list_vendors</code> itself (it relied on Inventory). Accounting added <code>list_approvals</code> and <code>list_payments</code> checks before and after paying (its prompt asks it to avoid paying twice), and repeated <code>list_vendors</code> and <code>get_bills_and_cash</code> three times each, which is a little redundant.</li><li><b>Scope:</b> because this was a single-ticket run, the Boss planned only invoice 501 and explicitly left the $2,400 rent for ticket 102.</li></ul>
   </div>
 </section>
 
@@ -259,22 +263,14 @@
 
   <div class="card actual">
     <span class="section-label">Actual</span>
-    <h3>What the team did (fill in after the run)</h3>
+    <h3>What the team did — Problem 9 run on the board (approver: Meg)</h3>
     <table>
-      <thead><tr><th style="width:28%">Item</th><th>Observed in <code>output/audit_trail.json</code> / <code>run_report.json</code></th></tr></thead>
-      <tbody>
-        <tr><td>Run ID</td><td class="blank"></td></tr>
-        <tr><td>Boss called first</td><td class="blank"></td></tr>
-        <tr><td>Delegations (in order)</td><td class="blank"></td></tr>
-        <tr><td>MCP tools used</td><td class="blank"></td></tr>
-        <tr><td>Approvals and human decisions</td><td class="blank"></td></tr>
-        <tr><td>Final ticket status</td><td class="blank"></td></tr>
-        <tr><td>Draft to requester</td><td class="blank"></td></tr>
-        <tr><td>Matched expected?</td><td class="blank"></td></tr>
-      </tbody>
+      <thead><tr><th style="width:24%">Item</th><th>Observed in <code>output/audit_trail.json</code> and <code>output/runs/ticket_102.json</code></th></tr></thead>
+      <tbody><tr><td>Run</td><td><code>20261015T032513Z-t102-9c6b</code> · gpt-6-luna · 19 model calls · 23 tool calls · 70k tokens · 78 s</td></tr><tr><td>Boss called first</td><td><b>Facilities</b> <span class="badge ok">✓ as expected</span> — review lease 1 against the notice; “do not pay or contact the landlord” (the Boss also sent Accounting a numbers-only brief in the same step).</td></tr><tr><td>Agents that worked</td><td>Boss, Facilities, Accounting, Customer Service. Inventory was not called (no stock involved).</td></tr><tr><td>Delegations (in order)</td><td><ol class='steps'><li><b>Boss → Facilities</b>: lease 1, Chapel Street shop, $2,400 due 2026-09-02; review urgency and advise.</li><li><b>Boss → Accounting</b>: numbers only — cash $2,560 vs. the rent bill.</li><li><b>Boss → Accounting</b>: payment plan — request approval for rent on lease 1, $2,400, leaving $160.</li><li><b>Boss → Customer Service</b>: draft a concise confirmation to Elm City Properties (payment 2 made).</li></ol></td></tr><tr><td>MCP tools used</td><td><div class='tool-list'><b>Boss</b> <code>list_open_tickets</code><code>get_ticket(102)</code><code>get_bills_and_cash ×2</code><code>update_ticket(102, resolved)</code></div><div class='tool-list'><b>Facilities</b> <code>get_ticket(102)</code><code>get_bills_and_cash</code><code>list_payments</code><code>get_shop_date</code></div><div class='tool-list'><b>Accounting</b> <code>get_bills_and_cash ×2</code><code>get_lease(1)</code><code>get_ticket(102)</code><code>list_approvals</code><code>request_payment(rent, 1)</code><code>list_payments</code></div><div class='tool-list'><b>Customer Service</b> <code>get_ticket(102)</code><code>list_drafts(102)</code><code>draft_customer_message(102)</code></div><div class='tool-list'><b>Human (board)</b> <code>admin_decide_approval</code><code>pay_bill(3)</code> via <code>POST /approvals/3/approve</code></div></td></tr><tr><td>Approvals and human decisions</td><td>#3 rent on lease 1, $2,400, due 2026-09-02 — <b>approved by Meg → paid</b> (payment 2), checking $2,560 → $160; lease 1 <code>next_due</code> moved to 2026-10-02.</td></tr><tr><td>Final ticket status</td><td><code>resolved</code> <span class="badge ok">✓ as expected</span></td></tr><tr><td>Draft to requester</td><td>Draft 2 → Elm City Properties, “Chapel Street shop rent payment”: “Thank you for the reminder. We have paid the $2,400 rent… ahead of its September 2 due date.” Shop correctly the payer. Not sent.</td></tr><tr><td>Matched expected?</td><td>Yes — first call, four delegations, the rent approval, $160 ending cash, lease date, resolved status and the payer wording all match.</td></tr></tbody>
     </table>
-    <h4>Differences and notes</h4>
-    <div class="fill">To be filled after running the agents.</div>
+    <h4>Expected vs. actual</h4>
+    <p class="verdict">Matches the plan; the only change is that the invoice was already paid by the time this ticket ran.</p>
+    <ul class="diffs"><li><b>Money plan:</b> expected “pay invoice 501, then rent” for the whole shop; actual plan had only rent, because ticket 101's run (earlier) had already paid invoice 501. Tickets were run one at a time, so the Boss saw $2,560 and one bill.</li><li><b>Lease lookup:</b> Facilities read lease 1 through <code>get_ticket</code>'s linked lease rather than <code>get_lease</code>; Accounting used <code>get_lease(1)</code> instead. Same facts either way.</li></ul>
   </div>
 </section>
 
@@ -342,30 +338,42 @@
 
   <div class="card actual">
     <span class="section-label">Actual</span>
-    <h3>What the team did (fill in after the run)</h3>
+    <h3>What the team did — Problem 9 run on the board (approver: Meg)</h3>
     <table>
-      <thead><tr><th style="width:28%">Item</th><th>Observed in <code>output/audit_trail.json</code> / <code>run_report.json</code></th></tr></thead>
-      <tbody>
-        <tr><td>Run ID</td><td class="blank"></td></tr>
-        <tr><td>Boss called first</td><td class="blank"></td></tr>
-        <tr><td>Delegations (in order)</td><td class="blank"></td></tr>
-        <tr><td>MCP tools used</td><td class="blank"></td></tr>
-        <tr><td>Discount chosen</td><td class="blank"></td></tr>
-        <tr><td>Approvals and human decisions</td><td class="blank"></td></tr>
-        <tr><td>Final ticket status</td><td class="blank"></td></tr>
-        <tr><td>Draft to requester</td><td class="blank"></td></tr>
-        <tr><td>Matched expected?</td><td class="blank"></td></tr>
-      </tbody>
+      <thead><tr><th style="width:24%">Item</th><th>Observed in <code>output/audit_trail.json</code> and <code>output/runs/ticket_103.json</code></th></tr></thead>
+      <tbody><tr><td>Run</td><td><code>20261015T032651Z-t103-6b3c</code> · gpt-6-luna · 18 model calls · 28 tool calls · 72k tokens · 94 s</td></tr><tr><td>Boss called first</td><td><b>Accounting</b> <span class="badge ok">✓ as expected</span> — numbers only: margins for 20 hoodies at several discounts (the Boss sent Inventory its brief in the same step).</td></tr><tr><td>Agents that worked</td><td>Boss, Accounting, Inventory, Customer Service. Facilities was not called.</td></tr><tr><td>Delegations (in order)</td><td><ol class='steps'><li><b>Boss → Accounting</b>: numbers only — price and margin options for 20 × CC-HOOD-NAVY.</li><li><b>Boss → Inventory</b>: 8 on hand, short 12 — find the vendor, whether it's blocked, lead time. “Do not place any order.”</li><li><b>Boss → Accounting</b>: money plan — request one PO for 12 × CC-HOOD-NAVY M from vendor 1, $264, stating the cash shortfall.</li><li><b>Boss → Customer Service</b>: draft the reply offering 15% off ($49.30 each, $986).</li></ol></td></tr><tr><td>MCP tools used</td><td><div class='tool-list'><b>Boss</b> <code>list_open_tickets</code><code>get_ticket(103)</code><code>get_bills_and_cash</code><code>check_stock(CC-HOOD-NAVY, M, 20)</code><code>get_approval(4)</code><code>list_drafts(103)</code><code>update_ticket(103, resolved)</code></div><div class='tool-list'><b>Accounting</b> <code>get_bills_and_cash ×2</code><code>quote_price_margin 0% · 10% · 15% · 20%</code><code>list_vendors</code><code>get_ticket(103)</code><code>request_purchase_order(1, CC-HOOD-NAVY, M, 12)</code></div><div class='tool-list'><b>Inventory</b> <code>get_ticket(103)</code><code>check_stock(CC-HOOD-NAVY, M, 20)</code><code>list_vendors</code></div><div class='tool-list'><b>Customer Service</b> <code>get_ticket(103)</code><code>check_stock</code><code>list_drafts(103)</code><code>get_shop_date</code><code>draft_customer_message(103)</code></div><div class='tool-list'><b>Human (board)</b> <code>admin_decide_approval</code> via <code>POST /approvals/4/approve</code></div></td></tr><tr><td>Discount chosen</td><td><b>15% off</b>: $49.30 each, $986.00 for 20 (list $1,160), margin $546 (55.4%). Quoted options: 0%, 10%, 15%, 20%.</td></tr><tr><td>Approvals and human decisions</td><td>#4 purchase order, 12 × CC-HOOD-NAVY M from Bulldog Print Co, $264, arrives 2026-09-05; cash on hand $160, shortfall $104 shown at the prompt — <b>approved by Meg</b>, no cash moved.</td></tr><tr><td>Final ticket status</td><td><code>resolved</code> (discount, stock, PO and arrival in the note)</td></tr><tr><td>Draft to requester</td><td>Draft 3 → Yale AI Club, “Your Basic Hoodie Big Yale order”: 15% off, $49.30 each, $986 total; 8 on hand, 12 after the September 5 restock, not guaranteed. No cost or margin shown. Not sent.</td></tr><tr><td>Matched expected?</td><td>Yes on first call, four delegations, the PO approval with the shortfall shown, and the draft. Differences below.</td></tr></tbody>
     </table>
-    <h4>Differences and notes</h4>
-    <div class="fill">To be filled after running the agents.</div>
+    <h4>Expected vs. actual</h4>
+    <p class="verdict">Close match: same first call and hand-offs; the discount and PO went the way the plan described.</p>
+    <ul class="diffs"><li><b>Final status:</b> the plan said <code>waiting_on_vendor</code> if the order was approved; actual <code>resolved</code>, for the same board-prompt reason as 101.</li><li><b>Inventory</b> didn't call <code>list_inventory</code> for other sizes — the club asked for size M only, so it wasn't needed. The <b>Boss</b> also checked stock itself and confirmed approval #4 with <code>get_approval</code> before resolving.</li><li><b>Vendor block:</b> Bulldog Print Co was already unblocked (invoice 501 paid in ticket 101's run), so the PO was accepted on the first request — as the plan assumed.</li><li><b>Discount:</b> 15%, the same as full run #2 (run #1 chose 10%). No shop rule sets a limit, so this remains the Boss's call.</li></ul>
   </div>
 </section>
 
 <!-- ============================== CASH (later problem) ============================== -->
 <section role="tabpanel" id="panel-cash" aria-labelledby="tab-cash" hidden>
   <h2>Cash</h2>
-  <div class="card empty"><span class="icon" aria-hidden="true">&#9675;</span>Left blank for a later problem.</div>
+  <div class="card expected">
+    <span class="section-label">Actual</span>
+    <h3>Where the money went — Problem 9 runs (one ticket at a time, approver: Meg)</h3>
+    <table class="ledger">
+      <thead><tr><th>Step</th><th>What happened</th><th>Why</th><th class="num-col">Change</th><th class="num-col">Checking</th></tr></thead>
+      <tbody>
+        <tr class="start"><td>Start</td><td>Database reset to original values (<code>POST /reset</code>)</td><td><code>cash_accounts.checking</code> after the reset</td><td class="num-col">—</td><td class="num-col"><b>$3,400.00</b></td></tr>
+        <tr><td>Ticket 101 → resolved</td><td>Paid invoice 501 to Bulldog Print Co (payment 1, approval #1 by Meg)</td><td>Invoice was 3 days overdue and blocked the vendor from shipping the S tee</td><td class="num-col neg">−$840.00</td><td class="num-col">$2,560.00</td></tr>
+        <tr class="sub"><td></td><td>Purchase order #2: 1 × CC-TEE-WHITE S, $8 (approved by Meg)</td><td>A purchase order moves no cash; the vendor invoices later</td><td class="num-col">$0.00</td><td class="num-col">$2,560.00</td></tr>
+        <tr><td>Ticket 102 → resolved</td><td>Paid rent on lease 1 to Elm City Properties (payment 2, approval #3 by Meg)</td><td>Rent of $2,400 due 2026-09-02; paid 2 days early; lease next due moved to 2026-10-02</td><td class="num-col neg">−$2,400.00</td><td class="num-col">$160.00</td></tr>
+        <tr><td>Ticket 103 → resolved</td><td>Purchase order #4: 12 × CC-HOOD-NAVY M, $264 (approved by Meg); 15% discount approved by the Boss</td><td>No bill was paid. A PO moves no cash, and revenue from the club isn't recorded (cash only goes out)</td><td class="num-col">$0.00</td><td class="num-col">$160.00</td></tr>
+        <tr class="end"><td>End</td><td colspan="2">Two payments, $3,240.00 total (<code>payments</code> rows 1–2)</td><td class="num-col neg">−$3,240.00</td><td class="num-col"><b>$160.00</b></td></tr>
+      </tbody>
+    </table>
+    <p class="outcome" style="margin-top:14px">Ending balance check: <code>cash_accounts.checking</code> = <b>$160.00</b> on 2026-08-31 = $3,400.00 − $840.00 − $2,400.00. ✓ Matches. The balance never went negative.</p>
+    <h4>Committed but not yet paid</h4>
+    <ul class="diffs">
+      <li>Bulldog Print Co will invoice the two approved purchase orders: $8 (tee) + $264 (hoodies) = <b>$272</b>.</li>
+      <li>Next rent on lease 1: <b>$2,400</b> due 2026-10-02.</li>
+      <li>Both exceed today's $160. When those bills arrive, <code>pay_bill</code> will refuse any payment cash can't cover, and a human must approve each one.</li>
+    </ul>
+  </div>
 </section>
 
 <!-- ============================== REFLECTION (later problem) ============================== -->
@@ -375,7 +383,7 @@
 </section>
 
 </main>
-<footer>Expected sections written 2026-10-14 from the original database values, before wiring the backend. Actual sections are filled after a run.</footer>
+<footer>Expected sections written 2026-10-14 from the original database values, before wiring the backend. Actual sections and the Cash tab were filled from the Problem 9 runs on 2026-10-14.</footer>
 
 <script>
   // Plain tabs: click or use arrow keys. The URL hash (#101, #cash, ...) keeps the open tab on reload.

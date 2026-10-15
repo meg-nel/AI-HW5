@@ -284,3 +284,12 @@ A log of the prompts I typed to the AI assistant while building the Campus Custo
 > Commit and push Problem 10 to AI-HW5.
 
 *What was lacking:* The Problem 10 prompt didn't say to save the Reflection tab to GitHub.
+
+---
+
+## Final submission
+
+### Initial prompt
+
+> @"C:\Users\megha\Downloads\data (1)\data\campus_customs.db"
+> Pls make sure all the code is pushed to Git and put the repo URL in output/github_url.txt. Do not push the real .env to GitHub repo but pls include both database files under data (working copy called campus_customs_new.db and the file attached here called campus_customs.db)

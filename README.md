@@ -15,6 +15,7 @@ board / browser ──HTTP──▶ backend/main.py (FastAPI) ──▶ agent te
 | `backend/models.py` | Data types: approval requests and decisions, run context, agent reports. |
 | `backend/prompts/` | One prompt file per agent, with that agent's scope and shop rules. |
 | `backend/run_tickets.py` | Full run: resets the database, then the Boss works every open ticket. |
+| `data/campus_customs.db` | The database file provided with the assignment (same contents as the original). |
 | `data/campus_customs_new.db` | Working database the agents update. |
 | `data/campus_customs_original.db` | Untouched original (read-only), used for resets. |
 | `scripts/reset_db.py` | Restores the working database to the original values. |
